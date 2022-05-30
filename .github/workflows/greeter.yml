@@ -29,10 +29,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          repository: ${{ inputs.repo }}
-          token: ${{ secrets.personal-access-token }}
       - run: |
           echo 'Hello, ${{ inputs.username }}!' \
             'The repo ${{ inputs.repo }} was checked out.' \
             'This is the ${{ inputs.environment }} environment.'
+  test:
+    name: sss
+    needs: [greeter]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo 'hi'
