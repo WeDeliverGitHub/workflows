@@ -1,0 +1,41 @@
+name: Checking Code/Models 🔎
+
+on:
+  workflow_call:
+    inputs:
+      models_directory:
+        description: The model directory to scan.
+        required: false
+        type: string
+        default: model
+
+jobs:
+
+  validation:
+    runs-on: ubuntu-latest
+    name: 'Files type checking'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get Database changes
+        id: db_modified
+        uses: Ana06/get-changed-files@v2.1.0
+        with:
+          filter: |
+            ${{ inputs.models_directory }}/*
+            ${{ inputs.models_directory }}/*/*
+      - name: Get Code changes
+        id: code_modified
+        uses: Ana06/get-changed-files@v2.1.0
+        with:
+          filter: |
+            *
+            !${{ inputs.models_directory }}/*
+            !${{ inputs.models_directory }}/*/*
+      - name: Fail if mix changes
+        if: ${{ (join(steps.db_modified.outputs.all, ',') != '' && join(steps.code_modified.outputs.all, ',') != '') }}
+        run: |
+          echo "::error ::Database models and code are both changed, this is not allowed!"
+          exit 1
