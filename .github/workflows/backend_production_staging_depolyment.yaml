@@ -131,6 +131,7 @@ jobs:
           pip install -r requirements_dev.txt
 
       - name: Black
+        if: ${{ steps.filter.outputs.py_modified == 'true' }}
         uses: psf/black@stable
         with:
           options: "--check --diff"
