@@ -51,7 +51,6 @@ jobs:
         run: |
           if  [[ "${{ secrets.APP_FOLDER_NAME }}" != "sharedDependenciesWeb" ]] ; then		
           npm ci
-		  fi
           
       - name: Build the project		  
         run: |
