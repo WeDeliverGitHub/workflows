@@ -2,6 +2,11 @@ name: Develop 🚀
 
 on:
   workflow_call:
+    secrets:
+      APP_FOLDER_NAME:
+        description: Service repo name
+        required: true
+  
 jobs:
 
   build-and-deploy:
