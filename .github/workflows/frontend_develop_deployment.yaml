@@ -1,13 +1,7 @@
 name: Develop 🚀
 
 on:
-  push:
-    paths:
-      - 'env-configs/**'
-      - 'public/**'
-      - 'src/**'
-      - 'package*.json'    
-    branches: [ free-zone ]
+  workflow_call:
 jobs:
 
   build-and-deploy:
