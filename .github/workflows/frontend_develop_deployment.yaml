@@ -48,10 +48,14 @@ jobs:
           node-version: 14.x
       
       - name: Install dependencies
-        if: ( ${{ github.repository }} != 'shared' )	  
+        if: ( ${{ github.repository }} != 'sharedDependenciesWeb' )	  
         run: |
           npm ci
-          
+      - name: Install Shared dependencies
+        if: ( ${{ github.repository }} == 'sharedDependenciesWeb' )	  
+        run: |
+          npm install
+		  
       - name: Build the project		  
         run: |
           npm run deploy --branch_name=develop
