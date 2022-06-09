@@ -49,7 +49,7 @@ jobs:
       
       - name: Install dependencies		  
         run: |
-          if  [[ ${{ secrets.APP_FOLDER_NAME }} != "sharedDependenciesWeb" ]] ; then		
+          if  [[ "${{ secrets.APP_FOLDER_NAME }}" != "sharedDependenciesWeb" ]] ; then		
           npm ci
           echo "Install microfront dependencies"		  
 		  else
