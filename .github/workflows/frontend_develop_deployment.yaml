@@ -51,7 +51,7 @@ jobs:
         run: |
           if  [[ ${{github.repository}} != "sharedDependenciesWeb" ]] ; then
             npm ci
-			echo "${{github.repository}}"
+			echo "not shared dependencies"
 		  fi
 
       - name: Build the project		  
