@@ -52,7 +52,7 @@ jobs:
           if  [[ "${{ secrets.APP_FOLDER_NAME }}" != "sharedDependenciesWeb" ]] ; then		
           npm ci
           echo "Install microfrontend dependencies"		  
-		  
+		  fi
           
       - name: Build the project		  
         run: |
