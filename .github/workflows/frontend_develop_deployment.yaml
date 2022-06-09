@@ -51,6 +51,10 @@ jobs:
         if: ( ${{ github.repository }} != 'sharedDependenciesWeb' )	  
         run: |
           npm ci
+      - name: Install Shared dependencies
+        if: ( ${{ github.repository }} == 'sharedDependenciesWeb' )	  
+        run: |
+          npm install
 
       - name: Build the project		  
         run: |
