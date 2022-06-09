@@ -51,9 +51,6 @@ jobs:
         run: |
           if  [[ ${{github.repository}} != "sharedDependenciesWeb" ]] ; then
             npm ci
-		  else
-		    npm install
-		  fi
 
       - name: Build the project		  
         run: |
