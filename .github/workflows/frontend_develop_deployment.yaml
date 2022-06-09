@@ -47,13 +47,12 @@ jobs:
         with:
           node-version: 14.x
       
-      - name: Install dependencies		
-	    id: dependencies 
-        run: |           
-	   	  echo "##[set-output name=APP_FOLDER_NAME;]$(echo ${{ secrets.APP_FOLDER_NAME }})"
-          if  [[ ${{ steps.dependencies.outputs.APP_FOLDER_NAME }} != "sharedDependenciesWeb" ]] ; then		
+      - name: Install dependencies		  
+        run: |
+          if  [[ ${{ github.repository }} != "sharedDependenciesWeb" ]] ; then		
           npm ci
-          fi
+		 
+          
       - name: Build the project		  
         run: |
           npm run deploy --branch_name=develop
