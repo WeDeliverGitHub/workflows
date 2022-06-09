@@ -48,7 +48,7 @@ jobs:
           node-version: 14.x
 		  
       - name: Install sharedDependenciesWeb dependencies	
-        if: ${{ secrets.APP_FOLDER_NAME }} == 'sharedDependenciesWeb'
+        if: ${{ contains(secrets.APP_FOLDER_NAME, 'sharedDependenciesWeb' ) }} 
         run: |
           npm install
 		  
