@@ -1,23 +1,7 @@
 name: Production/Staging 🚀
 
 on:
-  pull_request:
-    paths:
-      - 'env-configs/**'
-      - 'public/**'
-      - 'src/**'
-      - 'package*.json'
-    types: [ labeled, unlabeled, reopened, synchronize ]
-    branches: [ master ]
-  pull_request_target:
-    paths:
-      - 'env-configs/**'
-      - 'public/**'
-      - 'src/**'
-      - 'package*.json'
-    types: [ closed ]
-    branches: [ master ]
-    
+  workflow_call:
 jobs:
 
   detect-context:
