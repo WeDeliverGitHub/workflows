@@ -46,11 +46,6 @@ jobs:
         uses: actions/setup-node@v1			
         with:
           node-version: 14.x
-      
-      - name: Install dependencies	
-        if: ${{ secrets.APP_FOLDER_NAME != 'sharedDependenciesWeb' }}	  
-        run: |
-          npm ci
 		  
       - name: Install sharedDependenciesWeb dependencies	
         if: ${{ secrets.APP_FOLDER_NAME == 'sharedDependenciesWeb' }}	  
