@@ -2,11 +2,6 @@ name: Develop 🚀
 
 on:
   workflow_call:
-    secrets:
-      APP_FOLDER_NAME:
-        description: Service repo name
-        required: true
-  
 jobs:
 
   build-and-deploy:
@@ -51,12 +46,17 @@ jobs:
         uses: actions/setup-node@v1			
         with:
           node-version: 14.x
-		  
-      - name: Install sharedDependenciesWeb dependencies	
-        if: ${{ contains(secrets.APP_FOLDER_NAME, 'sharedDependenciesWeb' ) }} 
+      
+      - name: Install dependencies		  
         run: |
+          if  [[ ${{ secrets.APP_FOLDER_NAME }} != "sharedDependenciesWeb" ]] ; then		
+          npm ci
+          echo "Install microfront dependencies"		  
+		  else
           npm install
-		  
+          echo "Install shared dependencies repository"		  
+		  fi
+          
       - name: Build the project		  
         run: |
           npm run deploy --branch_name=develop
