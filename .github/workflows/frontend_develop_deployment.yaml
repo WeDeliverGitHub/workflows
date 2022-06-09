@@ -47,10 +47,16 @@ jobs:
         with:
           node-version: 14.x
       
-      - name: Install dependencies		  
+      - name: Install dependencies	
+        if: ${{ secrets.APP_FOLDER_NAME != 'sharedDependenciesWeb' }}	  
         run: |
           npm ci
-          
+		  
+      - name: Install sharedDependenciesWeb dependencies	
+        if: ${{ secrets.APP_FOLDER_NAME == 'sharedDependenciesWeb' }}	  
+        run: |
+          npm install
+		  
       - name: Build the project		  
         run: |
           npm run deploy --branch_name=develop
