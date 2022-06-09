@@ -51,7 +51,7 @@ jobs:
         run: |
           if  [[ ${{ github.repository }} != "sharedDependenciesWeb" ]] ; then		
 			  npm ci
-			  echo "repo name ${{ github.repository }}"
+			  echo "repo name microfrontend"
 		  fi
           
       - name: Build the project		  
