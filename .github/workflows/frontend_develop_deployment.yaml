@@ -49,10 +49,13 @@ jobs:
       
       - name: Install dependencies		  
         run: |
-          if  [[ ${{ github.repository }} != "sharedDependenciesWeb" ]] ; then		
+            if  [[ ${{ github.repository }} != "sharedDependenciesWeb" ]] ; then
 			  npm ci
 			  echo "repo name microfrontend"
-		  fi
+            else
+              echo "unlabled from unsupported environment"
+              exit 1
+            fi
           
       - name: Build the project		  
         run: |
