@@ -49,7 +49,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          if  [[ ${{github.repository}} != "sharedDependenciesWeb" ]] ; then
+          if  [[ ${{github.repository}} != 'sharedDependenciesWeb' ]] ; then
             npm ci
 			echo "not shared dependencies"
 
