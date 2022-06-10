@@ -51,7 +51,6 @@ jobs:
         if: ${{ github.repository != 'sharedDependenciesWeb' }}	  
         run: |
             npm ci
-			echo "repo name is  "
 
       - name: Install shared dependencies
         if: ${{ github.repository == 'sharedDependenciesWeb' }}	  
