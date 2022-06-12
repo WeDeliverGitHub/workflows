@@ -61,17 +61,11 @@ jobs:
         id: S3_variables
         run: |
           if  [[ ${{ github.repository }} == "captainServiceFrontend" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/captain)"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
+            echo "catpain repo"
           elif [[ ${{ github.event.action }} == "labeled" ]] ; then
               echo "labled to unsupported environment"
           else
-            echo "##[set-output name=folder;]$(echo "dist" )"
-            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }}"
-            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}')"
-            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
+            echo "else if statement"
 
       - name: Build the project		  
         run: |
