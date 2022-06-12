@@ -57,6 +57,22 @@ jobs:
         run: |
             npm install
 
+      - name: Set S3 variables
+        id: S3_variables
+        run: |
+          if [[ ${{ github.repository == 'captainServiceFrontend' }} ]]; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/captain)"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
+          elif [[ ${{ github.repository == 'captainServiceFrontendjjj' }} ]]; then
+            echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
+            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_STAGING_APPS_BUCKET }})"
+            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }})"
+            echo "##[set-output name=deployBranchName;]$(echo ${{ 'staging' }})"
+          fi
+
       - name: Build the project		  
         run: |
           npm run deploy --branch_name=develop
