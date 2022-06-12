@@ -60,24 +60,15 @@ jobs:
       - name: Set S3 variables
         id: S3_variables
         run: |
-          if [[ ${{ github.event.action }} == "closed" ]]; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/captain)"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
-          elif [[ ${{ github.repository == 'captainServiceFrontendjjj' }} ]]; then
-            echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
-            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
-            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_STAGING_APPS_BUCKET }})"
-            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }})"
-            echo "##[set-output name=deployBranchName;]$(echo ${{ 'staging' }})"
-		  else
-            echo "##[set-output name=folder;]$(echo "dist" )"
-            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }})"
-            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}' )"
-            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
-          fi
-
+          if  [[ ${{ github.event.action }} == "closed" && ${{ github.event.pull_request.merged }} == true ]] ; then
+            workflow[pushto]='master,sandbox'
+          elif [[ ${{ github.event.action }} == "labeled" ]] ; then
+            if  [[ "${{ github.event.label.name }}" == "staging" ]] ; then
+              workflow[pushto]='staging'
+            else
+              echo "labled to unsupported environment"
+              exit 1
+            fi
       - name: Build the project		  
         run: |
           npm run deploy --branch_name=develop
