@@ -71,6 +71,12 @@ jobs:
             echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_STAGING_APPS_BUCKET }})"
             echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }})"
             echo "##[set-output name=deployBranchName;]$(echo ${{ 'staging' }})"
+		  else
+            echo "##[set-output name=folder;]$(echo "dist" )"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }})"
+            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}' )"
+            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
+		  
           fi
 
       - name: Build the project		  
@@ -80,12 +86,12 @@ jobs:
       - name: Deploy-to-S3
         uses: reggionick/s3-deploy@v3	
         with:
-            folder: dist
-            bucket: ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }}
+            folder: ${{ steps.S3_variables.outputs.folder }}
+            bucket: ${{ steps.S3_variables.outputs.bucket }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
             dist-id: ${{ secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}
-            invalidation: /apps/${{ secrets.APP_FOLDER_NAME }}
-            delete-removed: apps/${{ secrets.APP_FOLDER_NAME }}/**
+            invalidation: ${{ steps.S3_variables.outputs.invalidation }}
+            delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
             no-cache: true
             private: true
 
