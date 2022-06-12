@@ -48,12 +48,12 @@ jobs:
           node-version: 14.x
       
       - name: Install dependencies
-        if: ${{ github.repository != 'sharedDependenciesWeb' }}	  
+        if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
         run: |
             npm ci
 
       - name: Install shared dependencies
-        if: ${{ github.repository == 'sharedDependenciesWeb' }}	  
+        if: ${{ github.repository == 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
         run: |
             npm install
 
@@ -66,14 +66,12 @@ jobs:
             echo "##[set-output name=invalidation;]$(echo '/')"
             echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
           elif [[ ${{ github.event.action }} == "labeled" ]] ; then
-            if  [[ "${{ github.event.label.name }}" == "staging" ]] ; then
-              workflow[pushto]='staging'
-            else
               echo "labled to unsupported environment"
-              exit 1
-            fi
           else
             echo "##[set-output name=folder;]$(echo "dist" )"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }}"
+            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}')"
+            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
 
       - name: Build the project		  
         run: |

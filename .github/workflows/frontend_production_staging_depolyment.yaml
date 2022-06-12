@@ -139,12 +139,12 @@ jobs:
           node-version: 14.x
       
       - name: Install dependencies
-        if: ${{ github.repository != 'sharedDependenciesWeb' }}	  
+        if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
         run: |
           npm ci
 
       - name: Install shared dependencies
-        if: ${{ github.repository == 'sharedDependenciesWeb' }}	  
+        if: ${{ github.repository == 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
         run: |
             npm install
 
