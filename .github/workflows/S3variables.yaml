@@ -31,4 +31,4 @@ jobs:
       - name: print S3 variables		  
         run: |
           echo "${{ steps.S3_variables.outputs.folder }}"
-		  echo "${{ steps.S3_variables.outputs.bucket }}"
+          echo "${{ steps.S3_variables.outputs.bucket }}"
