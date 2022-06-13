@@ -60,10 +60,8 @@ jobs:
       - name: Set S3 variables
         id: S3_variables
         run: |
-          if  [[ ${{ github.repository }} == "captainServiceFrontend" ]] ; then
+          if  [[ "${{ github.repository }}" == "captainServiceFrontend" ]] ; then
             echo "catpain repo"
-          elif [[ ${{ github.event.action }} == "labeled" ]] ; then
-              echo "labled to unsupported environment"
           else
             echo "else if statement"
           fi
