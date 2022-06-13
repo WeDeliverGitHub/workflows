@@ -28,18 +28,7 @@ jobs:
             echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
           fi
 
-      - name: Build the project		  
+      - name: print S3 variables		  
         run: |
-          npm run deploy --branch_name=develop
-          
-      - name: Deploy-to-S3
-        uses: reggionick/s3-deploy@v3	
-        with:
-            folder: ${{ steps.S3_variables.outputs.folder }}
-            bucket: ${{ steps.S3_variables.outputs.bucket }}
-            bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
-            dist-id: ${{ secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}
-            invalidation: ${{ steps.S3_variables.outputs.invalidation }}
-            delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
-            no-cache: true
-            private: true
+          echo "${{ steps.S3_variables.outputs.folder }}"
+		  echo "${{ steps.S3_variables.outputs.bucket }}"
