@@ -66,6 +66,7 @@ jobs:
               echo "labled to unsupported environment"
           else
             echo "else if statement"
+          fi
 
       - name: Build the project		  
         run: |
