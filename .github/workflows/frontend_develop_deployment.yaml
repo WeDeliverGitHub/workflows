@@ -60,10 +60,16 @@ jobs:
       - name: Set S3 variables
         id: S3_variables
         run: |
-          if  [[ "${{ github.repository }}" == "captainServiceFrontend" ]] ; then
-            echo "catpain repo"
+          if  [[ "${{ github.repository }}" == "WeDeliverGitHub/captainServiceFrontend" ]] ; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/captain")"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
           else
-            echo "else if statement"
+            echo "##[set-output name=folder;]$(echo "dist" )"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }})"
+            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}')"
+            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
           fi
 
       - name: Build the project		  
