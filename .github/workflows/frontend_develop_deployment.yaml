@@ -65,6 +65,21 @@ jobs:
             echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/captain")"
             echo "##[set-output name=invalidation;]$(echo '/')"
             echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
+          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/publicServiceWeb" ]]; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/spa/sa/public")"
+            echo "##[set-output name=invalidation;]$(echo '/sa/public')"
+            echo "##[set-output name=delete-removed;]$(echo 'spa/sa/public/**')"
+          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/spaServiceWeb" ]]; then
+            echo "##[set-output name=folder;]$(echo "dist" )"
+            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/spa")"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'spa/**')"
+          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/sharedDependenciesWeb" ]]; then
+            echo "##[set-output name=folder;]$(echo "npm" )"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }})"
+            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}')"
+            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"			
           else
             echo "##[set-output name=folder;]$(echo "dist" )"
             echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }})"
