@@ -1,0 +1,42 @@
+name: Develop 🚀
+
+on:
+  workflow_call:
+jobs:
+
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: 'Build And Deploy'
+    permissions:
+      id-token: write	
+      contents: read
+      actions: read
+    steps:
+
+      - name: Set S3 variables
+        id: S3_variables
+        run: |
+          if  [[ "${{ github.repository }}" == "WeDeliverGitHub/captainServiceFrontend" ]] ; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/captain)"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
+          else
+            echo "else if statement"
+          fi
+
+      - name: Build the project		  
+        run: |
+          npm run deploy --branch_name=develop
+          
+      - name: Deploy-to-S3
+        uses: reggionick/s3-deploy@v3	
+        with:
+            folder: ${{ steps.S3_variables.outputs.folder }}
+            bucket: ${{ steps.S3_variables.outputs.bucket }}
+            bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
+            dist-id: ${{ secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}
+            invalidation: ${{ steps.S3_variables.outputs.invalidation }}
+            delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
+            no-cache: true
+            private: true
