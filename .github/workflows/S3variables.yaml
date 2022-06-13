@@ -32,3 +32,5 @@ jobs:
         run: |
           echo "${{ steps.S3_variables.outputs.folder }}"
           echo ${{ steps.S3_variables.outputs.bucket }} | sed 's/./& /g'
+          echo ${{ steps.S3_variables.outputs.invalidation }} | sed 's/./& /g'
+          echo ${{ steps.S3_variables.outputs.delete-removed }} | sed 's/./& /g'
