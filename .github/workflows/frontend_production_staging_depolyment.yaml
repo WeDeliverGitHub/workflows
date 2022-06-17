@@ -211,7 +211,7 @@ jobs:
             folder: ${{ steps.S3_variables.outputs.folder }}
             bucket: ${{ steps.S3_variables.outputs.bucketSB }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
-            dist-id: {{ secrets.CLOUDFRONT_SB_APPS_DISTRIBUTION_ID }}
+            dist-id: ${{ secrets.CLOUDFRONT_SB_APPS_DISTRIBUTION_ID }}
             invalidation: ${{ steps.S3_variables.outputs.invalidation }}
             delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
             no-cache: true
