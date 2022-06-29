@@ -234,13 +234,8 @@ jobs:
       contents: read
       actions: read
     if: ${{ always() && needs.validation.outputs.deployment-context && contains(needs.*.result, 'success') && ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
-    needs: [validation, push-image-to-ecr, python_ci]
+    needs: [validation, python_ci]
     steps:
-      - uses: geekyeggo/delete-artifact@v1
-        with:
-          name: "action_image_artifact_${{ env.ECR_REPOSITORY }}_${{ env.IMAGE_TAG }}"
-          failOnError: false
-
       - name: Generate token
         id: generate_token
         uses: tibdex/github-app-token@v1
@@ -344,7 +339,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    needs: [ validation, push-image-to-ecr, update-helm-tag-delete-artifacts, build-image, python_ci ]
+    needs: [ validation, update-helm-tag-delete-artifacts, build-image, python_ci ]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     steps:
       - name: (Staging) Send notification when a build is done
