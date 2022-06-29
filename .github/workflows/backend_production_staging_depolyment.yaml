@@ -17,7 +17,7 @@ env:
 jobs:
 
   validation:
-    runs-on: Debian-latest
+    runs-on: debian-latest
     name: 'Detect pull request context'
 
     steps:
