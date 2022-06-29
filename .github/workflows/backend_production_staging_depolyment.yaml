@@ -17,7 +17,7 @@ env:
 jobs:
 
   validation:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: 'Detect pull request context'
 
     steps:
@@ -99,7 +99,7 @@ jobs:
 
 
   python_ci:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -145,7 +145,7 @@ jobs:
 
 
   new-build-started:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: 'Send start notification'
     permissions:
       contents: read
@@ -180,7 +180,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT }}
 
   build-image:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: 'Build Docker Image'
     permissions:
       id-token: write	
@@ -232,7 +232,7 @@ jobs:
 
 
   update-helm-tag-delete-artifacts:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: 'Update helm tag & delete artifacts'
     permissions:
       contents: read
@@ -302,7 +302,7 @@ jobs:
           token: ${{ steps.generate_token.outputs.token }}
 
   send-workflow-success:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: 'Send success notification'
     permissions:
       contents: read
@@ -338,7 +338,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT }}
 
   send-workflow-failure:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: 'Send fail notification'
     permissions:
       contents: read
