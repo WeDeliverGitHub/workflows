@@ -203,7 +203,7 @@ jobs:
         id: aws_account
         run: |
           if [[ ${{ contains(steps.determine_context.outputs.pushto, 'master') }} ]]; then
-           # echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
+            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
           else
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
           fi
