@@ -182,6 +182,10 @@ jobs:
   build-image:
     runs-on: ubuntu-latest
     name: 'Build Docker Image'
+    permissions:
+      id-token: write	
+      contents: read
+      actions: read	
     needs: [validation, python_ci]
     if: ${{ needs.validation.outputs.deployment-context }}
     steps:
@@ -208,7 +212,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         if: steps.aws_account.outputs.accountId
         with:
-          role-to-assume: 'arn:aws:iam::${{ steps.aws_account.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}'
+          role-to-assume: 'arn:aws:iam::${{ needs.steps.aws_account.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}'
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Login to Amazon ECR
