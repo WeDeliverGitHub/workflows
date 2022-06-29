@@ -195,37 +195,13 @@ jobs:
         with:
           ref: master
 
-      - name: Build image
-        run: |
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
-
-      - name: Upload image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
-
-  push-image-to-ecr:
-    runs-on: ubuntu-latest
-    name: 'Push image to ECR'
-    needs: [ validation, python_ci, build-image ]
-    strategy:
-      matrix:
-        include:
-          - environment: staging
-            accountId: AWS_STAGING_ACCOUNT_ID
-          - environment: master
-            accountId: AWS_PROD_ACCOUNT_ID
-    permissions:
-      id-token: write
-      contents: read
-      actions: read
-    steps:
-
       - name: Set AWS account
         id: aws_account
         run: |
-          if [[ ${{ contains(needs.validation.outputs.deployment-pushto, matrix.environment ) }} == 'true' ]]; then
-            echo "##[set-output name=accountId;]$(echo ${{ secrets[matrix.accountId] }})"
+          if [[ ${{ needs.validation.outputs.deployment-pushto == 'master' ]]; then
+            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
+          else
+            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
           fi
 
       - name: Configure AWS credentials
@@ -240,18 +216,14 @@ jobs:
         if: steps.aws_account.outputs.accountId
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
-        if: steps.aws_account.outputs.accountId
-        with:
-          image: "${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
-
       - name: Tag, and push image to Amazon ECR
         if: steps.aws_account.outputs.accountId
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.SERVICE_ECR_REPO_NAME }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
 
