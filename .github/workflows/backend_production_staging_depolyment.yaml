@@ -206,7 +206,7 @@ jobs:
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
           else
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
-			echo "{{ needs.steps.aws_account.outputs.accountId }}"
+            echo "{{ needs.steps.aws_account.outputs.accountId }}"
           fi
 
       - name: Configure AWS credentials
