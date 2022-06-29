@@ -17,7 +17,7 @@ env:
 jobs:
 
   validation:
-    runs-on: debian-9
+    runs-on: ubuntu-18.04
     name: 'Detect pull request context'
 
     steps:
