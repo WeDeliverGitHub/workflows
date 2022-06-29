@@ -206,14 +206,14 @@ jobs:
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
           else
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
-            echo "{{ needs.steps.aws_account.outputs.accountId }}"
+            echo "it's staging envionment ${{ steps.aws_account.outputs.accountId }}"
           fi
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         if: steps.aws_account.outputs.accountId
         with:
-          role-to-assume: 'arn:aws:iam::${{ needs.steps.aws_account.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}'
+          role-to-assume: 'arn:aws:iam::${{ steps.aws_account.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}'
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Login to Amazon ECR
