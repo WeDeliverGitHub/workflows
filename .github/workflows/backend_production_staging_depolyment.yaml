@@ -204,10 +204,8 @@ jobs:
         run: |
           if [[ ${{ contains(steps.determine_context.outputs.pushto, 'master') }} == 'true' ]]; then
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
-            echo "master account id"
           else
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
-            echo "staging env"
           fi
 
       - name: Configure AWS credentials
