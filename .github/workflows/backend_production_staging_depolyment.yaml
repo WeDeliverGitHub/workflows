@@ -206,7 +206,7 @@ jobs:
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
           else
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
-	    echo ${{ secrets.SERVICE_ECR_REPO_NAME }} | sed 's/./& /g'
+			echo ${{ secrets.SERVICE_ECR_REPO_NAME }} | sed 's/./& /g'
           fi
 
       - name: Configure AWS credentials
