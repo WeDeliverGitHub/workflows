@@ -97,60 +97,14 @@ jobs:
       deployment-reset: ${{ steps.determine_context.outputs.reset }}
       deployment-context: ${{ steps.determine_context.outputs.context }}
 
-
-  python_ci:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: [3.8]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Get changed files
-        uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          list-files: shell
-          filters: |
-            py_modified:
-              - added|modified: "./**/*.py"
-
-      - name: Set up Python ${{ matrix.python-version }}
-        if: ${{ steps.filter.outputs.py_modified == 'true' }}
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        if: ${{ steps.filter.outputs.py_modified == 'true' }}
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements_dev.txt
-
-      - name: Black
-        if: ${{ steps.filter.outputs.py_modified == 'true' }}
-        uses: psf/black@stable
-        with:
-          options: "--check --diff"
-          src: ${{ steps.filter.outputs.py_modified_files }}
-          version: "22.3.0"
-
-      - name: Lint with flake8
-        if: ${{ steps.filter.outputs.py_modified == 'true' }}
-        run: |
-          flake8 ${{ steps.filter.outputs.py_modified_files }}
-
-
   new-build-started:
     runs-on: ubuntu-latest
-    name: 'Send start notification'
+    name: 'Build and Push Docker Image'
     permissions:
+      id-token: write	
       contents: read
-      actions: read
-    needs: [ validation, python_ci ]
+      actions: read	
+    needs: [validation]
     if: ${{ needs.validation.outputs.deployment-context }}
     steps:
       - name: (Staging) New build Started
@@ -178,13 +132,7 @@ jobs:
           icon_emoji: ':rocket:'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT }}
-
-  build-image:
-    runs-on: ubuntu-latest
-    name: 'Build Docker Image'
-    needs: [validation, python_ci]
-    if: ${{ needs.validation.outputs.deployment-context }}
-    steps:
+    
       - name: Checkout PR code
         if: ${{ contains(needs.validation.outputs.deployment-source, 'pr') }}
         uses: actions/checkout@v3
@@ -195,37 +143,13 @@ jobs:
         with:
           ref: master
 
-      - name: Build image
-        run: |
-          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
-
-      - name: Upload image
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: "${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
-
-  push-image-to-ecr:
-    runs-on: ubuntu-latest
-    name: 'Push image to ECR'
-    needs: [ validation, python_ci, build-image ]
-    strategy:
-      matrix:
-        include:
-          - environment: staging
-            accountId: AWS_STAGING_ACCOUNT_ID
-          - environment: master
-            accountId: AWS_PROD_ACCOUNT_ID
-    permissions:
-      id-token: write
-      contents: read
-      actions: read
-    steps:
-
       - name: Set AWS account
         id: aws_account
         run: |
-          if [[ ${{ contains(needs.validation.outputs.deployment-pushto, matrix.environment ) }} == 'true' ]]; then
-            echo "##[set-output name=accountId;]$(echo ${{ secrets[matrix.accountId] }})"
+          if [[ ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }} == 'true' ]]; then
+            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
+          else
+            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
           fi
 
       - name: Configure AWS credentials
@@ -240,35 +164,26 @@ jobs:
         if: steps.aws_account.outputs.accountId
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
-        if: steps.aws_account.outputs.accountId
-        with:
-          image: "${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
-
       - name: Tag, and push image to Amazon ECR
         if: steps.aws_account.outputs.accountId
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.SERVICE_ECR_REPO_NAME }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
 
-  update-helm-tag-delete-artifacts:
+  update-helm-tag:
     runs-on: ubuntu-latest
-    name: 'Update helm tag & delete artifacts'
+    name: 'Update helm tag'
     permissions:
       contents: read
       actions: read
     if: ${{ always() && needs.validation.outputs.deployment-context && contains(needs.*.result, 'success') && ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
-    needs: [validation, push-image-to-ecr, python_ci]
+    needs: [validation, new-build-started]
     steps:
-      - uses: geekyeggo/delete-artifact@v1
-        with:
-          name: "action_image_artifact_${{ env.ECR_REPOSITORY }}_${{ env.IMAGE_TAG }}"
-          failOnError: false
-
       - name: Generate token
         id: generate_token
         uses: tibdex/github-app-token@v1
@@ -336,8 +251,8 @@ jobs:
     permissions:
       contents: read
       actions: read
-    if: ${{ always() && needs.validation.outputs.deployment-context && contains(needs.*.result, 'success') && ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
-    needs: [validation, update-helm-tag-delete-artifacts, python_ci]
+    if: ${{ ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
+    needs: [update-helm-tag, new-build-started]
     steps:
 
       - name: (Staging) Send notification when a build is done
@@ -372,7 +287,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    needs: [ validation, push-image-to-ecr, update-helm-tag-delete-artifacts, build-image, python_ci ]
+    needs: [ validation, update-helm-tag, new-build-started ]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     steps:
       - name: (Staging) Send notification when a build is done
