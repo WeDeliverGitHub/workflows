@@ -146,12 +146,11 @@ jobs:
       - name: Set AWS account
         id: aws_account
         run: |
-          if [[ ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }} == true ]]; then
+          if [[ "${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}" == "true" ]]; then
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
           else
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
           fi
-		  echo "${{ needs.validation.outputs.deployment-pushto }}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
