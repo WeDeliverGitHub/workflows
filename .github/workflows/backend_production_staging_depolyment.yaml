@@ -151,6 +151,7 @@ jobs:
           else
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
           fi
+		  echo "${{ needs.validation.outputs.deployment-pushto }}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
