@@ -251,8 +251,8 @@ jobs:
     permissions:
       contents: read
       actions: read
-    if: ${{ always() && needs.validation.outputs.deployment-context && contains(needs.*.result, 'success') && ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
-    needs: [validation, update-helm-tag, new-build-started]
+    if: ${{ ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
+    needs: [update-helm-tag, new-build-started]
     steps:
 
       - name: (Staging) Send notification when a build is done
