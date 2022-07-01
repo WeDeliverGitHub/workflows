@@ -172,9 +172,7 @@ jobs:
           no-deps: true
           pre: true
           editable: editable
-          platform: ':all:'
-          upgrade: true
-          extra: extra options
+          platform: 'linux_ubuntu_18_04_x86_64'
 
       - name: Tag, and push image to Amazon ECR
         if: steps.aws_account.outputs.accountId
