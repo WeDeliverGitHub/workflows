@@ -164,11 +164,17 @@ jobs:
         if: steps.aws_account.outputs.accountId
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: setup_python
-        if: steps.aws_account.outputs.accountId	  
-	      uses: actions/setup-python@v3
+      - uses: BSFishy/pip-action@v1
         with:
-           python-version: 3.7
+          packages: package
+          requirements: requirements.txt
+          constraints: constraints.txt
+          no-deps: true
+          pre: true
+          editable: editable
+          platform: ':all:'
+          upgrade: true
+          extra: extra options
 
       - name: Tag, and push image to Amazon ECR
         if: steps.aws_account.outputs.accountId
