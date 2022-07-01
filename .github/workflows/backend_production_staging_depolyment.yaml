@@ -165,6 +165,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
 	  - name: setup_python
+        if: steps.aws_account.outputs.accountId	  
 	    uses: actions/setup-python@v3
 	    with:
 		   python-version: 3.7
