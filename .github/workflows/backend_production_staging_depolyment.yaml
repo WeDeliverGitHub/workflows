@@ -166,9 +166,9 @@ jobs:
 
       - name: setup_python
         if: steps.aws_account.outputs.accountId	  
-	uses: actions/setup-python@v3
-	with:
-	   python-version: 3.7
+	      uses: actions/setup-python@v3
+        with:
+           python-version: 3.7
 
       - name: Tag, and push image to Amazon ECR
         if: steps.aws_account.outputs.accountId
