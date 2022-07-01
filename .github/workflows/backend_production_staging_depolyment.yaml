@@ -163,6 +163,12 @@ jobs:
         id: login-ecr
         if: steps.aws_account.outputs.accountId
         uses: aws-actions/amazon-ecr-login@v1
+      - uses: actions/cache@v1
+        with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
 
       - name: Tag, and push image to Amazon ECR
         if: steps.aws_account.outputs.accountId
