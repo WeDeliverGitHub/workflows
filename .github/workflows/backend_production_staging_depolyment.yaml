@@ -164,13 +164,25 @@ jobs:
         if: steps.aws_account.outputs.accountId
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: pip cache
-	    uses: actions/cache@v2
-        with:
-			path: ~/.cache/pip
-			key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-			restore-keys: |
-			  ${{ runner.os }}-pip-
+	  - uses: actions/checkout@v3
+	  - id: setup_python
+	    uses: actions/setup-python@v3
+	    with:
+		   python-version: 3.7
+
+	  - id: python_cache
+	    uses: actions/cache@v3
+	    with:
+		   path: venv
+		   key: pip-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
+
+	  - if: steps.python_cache.outputs.cache-hit != 'true'
+	    run: |
+		  python3 -m venv venv
+
+	  - run: |
+	      venv/bin/python3 -m pip install -r requirements.txt
+
 
       - name: Tag, and push image to Amazon ECR
         if: steps.aws_account.outputs.accountId
