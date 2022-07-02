@@ -203,8 +203,8 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
-          cache-from: type=local,src=~/.cache/pip
-          cache-to: type=inline
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Tag, and push image to Amazon ECR
         if: steps.aws_account.outputs.accountId
