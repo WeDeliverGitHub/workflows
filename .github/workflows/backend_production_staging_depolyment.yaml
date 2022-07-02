@@ -202,7 +202,7 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.SERVICE_ECR_REPO_NAME }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push .:$IMAGE_TAG
 
 
   update-helm-tag:
