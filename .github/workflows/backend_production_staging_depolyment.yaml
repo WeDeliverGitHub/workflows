@@ -183,6 +183,8 @@ jobs:
           images: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.SERVICE_ECR_REPO_NAME }}
           tags: |
             type=raw,value=${{ github.sha }}
+            type=raw,value=latest
+
       - name: Docker build/tag/push
         uses: docker/build-push-action@v2
         with:
