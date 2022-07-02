@@ -169,8 +169,6 @@ jobs:
         with:
           python-version: 3.9
           cache: 'pip'
-      - run: pip install -r requirements.txt
-
       - uses: actions/cache@v3
         id: cache-venv  # name for referring later
         with:
@@ -205,7 +203,7 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
-          cache-from: type=registry,ref=${{ steps.metadata.outputs.tags }}
+          cache-from: type=local,src=~/.cache/pip
           cache-to: type=inline
 
       - name: Tag, and push image to Amazon ECR
