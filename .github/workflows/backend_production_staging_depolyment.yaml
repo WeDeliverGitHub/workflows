@@ -189,10 +189,6 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
-      - name: Build
-        uses: docker/build-push-action@master
-        with:
-          context: ./build-push-action-577
 
       - name: Install dependencies
         if: steps.cache-venv.outputs.cache-hit != 'true'
