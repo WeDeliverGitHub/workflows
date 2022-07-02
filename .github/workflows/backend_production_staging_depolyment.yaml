@@ -201,12 +201,11 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v3
         with:
-          images: ${{ github.event.repository.name }}
+          images: ${{ steps.ecr-login.outputs.registry }}/${{ github.event.repository.name }}
           tags: |
             type=raw,value=latest
             type=raw,value=main
             type=sha
-
       - name: Docker build/tag/push
         uses: docker/build-push-action@v2
         with:
