@@ -146,17 +146,14 @@ jobs:
           node-version: 14.x
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
-      - run: npm ci --ignore-scripts
-        if: steps.cache.outputs.cache-hit != 'true'
-
 
       - name: Install dependencies
-        if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
+        if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	 &&  steps.cache.outputs.cache-hit != 'true'
         run: |
-         # npm ci
+          npm ci
 
       - name: Install shared dependencies
-        if: ${{ github.repository == 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
+        if: ${{ github.repository == 'WeDeliverGitHub/sharedDependenciesWeb' }}
         run: |
             npm install
 
