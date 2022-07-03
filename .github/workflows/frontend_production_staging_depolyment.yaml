@@ -162,7 +162,7 @@ jobs:
           cache-dependency-path: '**/package-lock.json'
 
       - name: Install dependencies
-        if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' &&  steps.cache.outputs.cache-hit != 'true' }}	 
+        if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	 
         run: |
           npm ci
 
@@ -207,7 +207,6 @@ jobs:
           fi
 
       - name: Build the project	
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}	 
         run: |
           npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }}
           
