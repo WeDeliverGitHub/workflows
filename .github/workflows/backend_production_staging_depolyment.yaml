@@ -194,16 +194,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-
-  update-helm-tag:
-    runs-on: ubuntu-latest
-    name: 'Update helm tag'
-    permissions:
-      contents: read
-      actions: read
-    if: ${{ always() && needs.validation.outputs.deployment-context && contains(needs.*.result, 'success') && ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
-    needs: [validation, new-build-started]
-    steps:
       - name: Generate token
         id: generate_token
         uses: tibdex/github-app-token@v1
@@ -264,6 +254,7 @@ jobs:
           createPR: false
           message: '${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag'
           token: ${{ steps.generate_token.outputs.token }}
+
 
   send-workflow-success:
     runs-on: ubuntu-latest
