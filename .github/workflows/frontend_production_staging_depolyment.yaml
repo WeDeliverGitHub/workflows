@@ -196,8 +196,7 @@ jobs:
         with:
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
-        run: |
-          npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }}
+        run: npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }}
           
       - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3	
