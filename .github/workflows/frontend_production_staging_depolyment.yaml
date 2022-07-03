@@ -146,8 +146,6 @@ jobs:
           node-version: 14.x
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
-      - run: npm ci
-      - run: npm test
 
       - name: Install dependencies
         if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' &&  steps.cache.outputs.cache-hit != 'true' }}	 
@@ -194,7 +192,8 @@ jobs:
             echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
           fi
 
-      - name: Build the project		  
+      - name: Build the project	
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}	 
         run: |
           npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }}
           
