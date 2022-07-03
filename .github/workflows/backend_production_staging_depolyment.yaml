@@ -263,7 +263,7 @@ jobs:
       contents: read
       actions: read
     if: ${{ ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
-    needs: [update-helm-tag, new-build-started]
+    needs: [ new-build-started ]
     steps:
 
       - name: (Staging) Send notification when a build is done
@@ -298,7 +298,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    needs: [ validation, update-helm-tag, new-build-started ]
+    needs: [ validation , new-build-started ]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     steps:
       - name: (Staging) Send notification when a build is done
