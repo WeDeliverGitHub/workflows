@@ -136,9 +136,13 @@ jobs:
         uses: actions/cache@v2
         id: cache
         with:
-          path: ./node_modules
-          key: modules-${{ hashFiles('package-lock.json') }}
-          restore-keys: npm-
+          path: '~/.npm'
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            npm-
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
           
       - name: Set up Node.js
         uses: actions/setup-node@v3
