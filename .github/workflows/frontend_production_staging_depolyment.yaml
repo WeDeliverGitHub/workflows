@@ -138,11 +138,14 @@ jobs:
         with:
           node-version: 14.x
           cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+      - run: npm ci
+
 
       - name: Install dependencies
         if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
         run: |
-          npm ci
+         # npm ci
 
       - name: Install shared dependencies
         if: ${{ github.repository == 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
