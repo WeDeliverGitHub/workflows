@@ -137,7 +137,8 @@ jobs:
         uses: actions/setup-node@v1			
         with:
           node-version: 14.x
-      
+          cache: 'npm'
+
       - name: Install dependencies
         if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
         run: |
