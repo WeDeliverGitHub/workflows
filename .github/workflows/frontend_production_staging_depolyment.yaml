@@ -192,11 +192,9 @@ jobs:
             echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
           fi
 
-      - name: Build the project
-        with:
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-        run: npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }}
+      - name: Build the project		  
+        run: |
+          npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }} --if-present
           
       - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3	
