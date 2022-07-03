@@ -161,9 +161,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
 
-      - uses: bahmutov/npm-install@v1
-      - run: npm run build --branch_name=${{ steps.configs.outputs.deployBranchName }}
-
       - name: Install dependencies
         if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' && steps.cache-nodemodules.outputs.cache-hit != 'true' }}	 
         run: |
