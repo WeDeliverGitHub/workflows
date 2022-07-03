@@ -132,6 +132,12 @@ jobs:
         with:
           role-to-assume: 'arn:aws:iam::${{ steps.configs.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: npm-
           
       - name: Set up Node.js
         uses: actions/setup-node@v3
