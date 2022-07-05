@@ -157,7 +157,7 @@ jobs:
         uses: actions/cache@v2
         with:
           # caching node_modules
-          path: dist # 👈 path for node_modules folder
+          path: ~/dist/** # 👈 path for node_modules folder
           key: ${{ runner.os }}-dist-
           # 👆 name of the chache key includes package-lock.json
           restore-keys: |
