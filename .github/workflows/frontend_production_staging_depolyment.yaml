@@ -157,7 +157,7 @@ jobs:
         uses: actions/cache@v2
         with:
           # caching node_modules
-          path: ~/dist/** # 👈 path for node_modules folder
+          path: '~/dist' # 👈 path for node_modules folder
           key: ${{ runner.os }}-dist-
           # 👆 name of the chache key includes package-lock.json
           restore-keys: |
@@ -168,8 +168,8 @@ jobs:
         uses: actions/setup-node@v3
         id: cache        
         with:
-          node-version: 14.x
-          cache: 'npm'
+          node-version: 16.x
+          cache: '~/.npm'
           cache-dependency-path: '**/package-lock.json'
 
       - name: Install dependencies
