@@ -189,7 +189,6 @@ jobs:
         with:
           context: .
           builder: ${{ steps.buildx.outputs.name }}
-          file: .dockerdev/Dockerfile.prod
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
