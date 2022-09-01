@@ -88,7 +88,7 @@ jobs:
           echo "::set-output name=pushto::${workflow[pushto]}"
           echo "::set-output name=reset::${workflow[reset]}"
           echo "::set-output name=source::${workflow[source]}"
-          echo "::set-output name=context::${workflow[source]}"
+          echo "::set-output name=context::${workflow[context]}"
 
     outputs:
       deployment-notify: ${{ steps.determine_context.outputs.notify }}
