@@ -258,17 +258,6 @@ jobs:
           message: '${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag'
           token: ${{ steps.generate_token.outputs.token }}
 
-
-  send-workflow-success:
-    runs-on: ubuntu-latest
-    name: 'Send success notification'
-    permissions:
-      contents: read
-      actions: read
-    if: ${{ ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
-    needs: [ new-build-started ]
-    steps:
-
       - name: (Staging) Send notification when a build is done
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'staging' ) }}
         uses: 8398a7/action-slack@v3
