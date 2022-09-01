@@ -120,14 +120,6 @@ jobs:
           message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository'
           token: ${{ steps.generate_token.outputs.token }}
 
-  send-workflow-success:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    needs: [build-push-image]
-    if: success()
-    steps:
       - name: Send notification when a build is done
         uses: 8398a7/action-slack@v3
         with:
