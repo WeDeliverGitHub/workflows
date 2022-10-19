@@ -41,7 +41,7 @@ jobs:
               workflow[source]="pr"
             else
               echo "Labled to unsupported environment"
-              exit 1
+              exit 0
             fi
           elif [[ ${{ github.event.action }} == "unlabeled" ]] ; then
             if  [[ "${{ github.event.label.name }}" == "staging" ]] ; then
@@ -51,7 +51,7 @@ jobs:
               workflow[source]="master"
             else
               echo "Unlabled from unsupported environment"
-              exit 1
+              exit 0
             fi
           elif [[ ${{ contains('reopened, synchronize', github.event.action) }} == "true" ]] ; then
             if [[ ${{ contains(join(github.event.pull_request.labels.*.name, ','), 'staging') }} == 'false' ]] ; then
