@@ -18,7 +18,7 @@ jobs:
           if  [[ "${{ github.event.label.name }}" == "test" ]] ; then
             echo "::set-output name=has-label::true"
             if  [[ "${{ github.event.pull_request.base.ref }}" == "master" ]] ; then
-              echo "::set-output name=service-domain::wedeliverapp.com"
+              echo "::set-output name=service-domain::wedeliver-staging.com"
             elif  [[ "${{ github.event.pull_request.base.ref }}" == "free-zone" ]] ; then
               echo "::set-output name=service-domain::wedeliver-dev.com"
             else
