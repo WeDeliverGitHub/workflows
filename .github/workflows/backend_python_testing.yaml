@@ -1,0 +1,119 @@
+name: Python Test 🧪
+
+on:
+  workflow_call:
+    secrets:
+      SERVICE_NAME:
+        description: Service name
+        required: true
+
+jobs:
+  checking:
+    name: Determine Context
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checking test Label
+        id: determine_context
+        run: |
+          if  [[ "${{ github.event.label.name }}" == "test" ]] ; then
+            echo "::set-output name=has-label::true"
+            if  [[ "${{ github.event.pull_request.base.ref }}" == "master" ]] ; then
+              echo "::set-output name=service-domain::wedeliverapp.com"
+            elif  [[ "${{ github.event.pull_request.base.ref }}" == "free-zone" ]] ; then
+              echo "::set-output name=service-domain::wedeliver-dev.com"
+            else
+              echo "Branch is not supported"
+              exit 1
+            fi
+          else
+            echo "Label is not supported"
+            exit 1
+          fi
+    outputs:
+      has-label: ${{ steps.determine_context.outputs.has-label }}
+      service-domain: ${{ steps.determine_context.outputs.service-domain }}
+
+  tests:
+    name: Testing
+
+    strategy:
+      fail-fast: false
+
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0.28
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: pytest_db
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    needs: [checking]
+    if: ${{ needs.checking.outputs.has-label }}
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/*requirements.txt', '**/*requirements_dev.txt', '**/pyproject.toml', '**/setup.py', '**/setup.cfg') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+
+      - name: Install
+        # working-directory: /app
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements_dev.txt
+        env:
+          CI: 'Yes'
+
+      - name: Run Tests
+        # working-directory: /app
+        run: |
+          pytest
+        env:
+          TYPE: server
+          FLASK_ENV: 'local'
+          AUTH_SERVICE: 'https://auth.services.${{ needs.checking.outputs.service-domain }}'
+          CAPTAIN_SERVICE: 'https://captain.services.${{ needs.checking.outputs.service-domain }}'
+          STC_SERVICE: 'https://stc.services.${{ needs.checking.outputs.service-domain }}'
+          SDD_SERVICE: 'https://sdd.services.${{ needs.checking.outputs.service-domain }}'
+          SUPPLIER_SERVICE: 'https://supplier.services.${{ needs.checking.outputs.service-domain }}'
+          FINTECH_SERVICE: 'https://fintech.services.${{ needs.checking.outputs.service-domain }}'
+          SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          SQLALCHEMY_TRACK_MODIFICATIONS: 'False'
+
+  send-test-failure:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    needs: [ tests ]
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    steps:
+
+      - name: Send notification when a test is failed
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Service Tester'
+          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          mention: 'here'
+          status: 'failure'
+          text: 'Backend Service Test Failed 🔴'
+          # fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '🔴'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_TESTING }}
