@@ -27,7 +27,7 @@ jobs:
             fi
           else
             echo "Label is not supported"
-            exit 1
+            exit 0
           fi
     outputs:
       has-label: ${{ steps.determine_context.outputs.has-label }}
@@ -101,7 +101,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-    needs: [ tests ]
+    needs: [ tests, checking ]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     steps:
 
