@@ -1,0 +1,286 @@
+name: Production/Staging 🚀
+
+on:
+  workflow_call:
+jobs:
+
+  detect-context:
+    runs-on: ubuntu-latest
+    name: 'Detect pull request context'
+
+    steps:
+      - uses: hmarr/debug-action@v2
+
+      - name: Determine the deployment flow
+        id: determine_context
+        run: |
+          declare -A workflow
+          workflow[context]=true
+          workflow[source]="pr"
+          if  [[ ${{ github.event.action }} == "closed" && ${{ github.event.pull_request.merged }} == true ]] ; then
+            workflow[pushto]='master,sandbox'
+          elif [[ ${{ github.event.action }} == "labeled" ]] ; then
+            if  [[ "${{ github.event.label.name }}" == "staging" ]] ; then
+              workflow[pushto]='staging'
+            else
+              echo "labled to unsupported environment"
+              exit 1
+            fi
+          elif [[ ${{ github.event.action }} == "unlabeled" ]] ; then
+            if  [[ "${{ github.event.label.name }}" == "staging" ]] ; then
+              workflow[pushto]='staging'
+              workflow[source]="master"
+            else
+              echo "unlabled from unsupported environment"
+              exit 1
+            fi
+          elif [[ ${{ contains('closed, reopened, synchronize', github.event.action) }} == "true" ]] ; then
+            if [[ ${{ contains(join(github.event.pull_request.labels.*.name, ','), 'staging') }} == 'false' ]] ; then
+              echo "No lable found on the PR to push to"
+              workflow[context]=false
+              exit 0
+            fi
+            workflow[pushto]='staging'
+          elif [[ ${{ contains('closed', github.event.action) }} == "true" ]] ; then
+            if [[ ${{ contains(join(github.event.pull_request.labels.*.name, ','), 'staging') }} == 'false' ]] ; then
+              echo "No lable found on the PR to rest into"
+              workflow[context]=false
+              exit 0
+            fi
+            workflow[pushto]='staging'
+          else
+            echo "unrecognized action type"
+            exit 1
+          fi
+          
+          echo "pushto: ${workflow[pushto]}"
+          echo "context: ${workflow[context]}"
+          echo "source: ${workflow[source]}"
+          
+          
+          echo "::set-output name=pushto::${workflow[pushto]}"
+          echo "::set-output name=context::${workflow[context]}"
+          echo "::set-output name=source::${workflow[source]}"
+          
+          
+    outputs:
+      deployment-pushto: ${{ steps.determine_context.outputs.pushto }}
+      deployment-context: ${{ steps.determine_context.outputs.context }}
+      deployment-source: ${{ steps.determine_context.outputs.source }}
+      
+      
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: 'Build and Deploy'
+    permissions:
+      id-token: write	
+      contents: read
+      actions: read
+    needs: [ detect-context ]
+    if: ${{ needs.detect-context.outputs.deployment-context == 'true' }}
+    steps:
+      - name: Set config variables
+        id: configs
+        run: |
+          if [[ ${{ contains(needs.detect-context.outputs.deployment-pushto, 'master' ) }} == 'true' ]]; then
+            echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT }})"
+            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_PROD_APPS_BUCKET }})"
+            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }})"
+            echo "##[set-output name=deployBranchName;]$(echo ${{ 'master' }})"
+          elif [[ ${{ contains(needs.detect-context.outputs.deployment-pushto, 'staging' ) }} == 'true' ]]; then
+            echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
+            echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
+            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_STAGING_APPS_BUCKET }})"
+            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }})"
+            echo "##[set-output name=deployBranchName;]$(echo ${{ 'staging' }})"
+          fi
+          
+      - name: New build Started
+        uses: 8398a7/action-slack@v3
+        with:
+          text: 'New Build and Deploy Started for ${{ github.event.repository.name }} 🚀'
+          status: 'cancelled'
+          author_name: 'Frontend Build and Deploy'
+          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          fields: repo,ref,message,author,eventName,workflow
+          icon_emoji: ':rocket:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ steps.configs.outputs.webhookId }}
+          
+      - name: Checkout PR code
+        if: contains(needs.detect-context.outputs.deployment-source, 'pr')
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Checkout Master code
+        if: contains(needs.detect-context.outputs.deployment-source, 'master')
+        uses: actions/checkout@v3
+        with:
+          ref: master
+          persist-credentials: false
+          
+      - name: Reconfigure git to use HTTP authentication
+        run: >
+          git config --global url."https://github.com/".insteadOf
+          ssh://git@github.com/
+      
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: 'arn:aws:iam::${{ steps.configs.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          
+      - name: Set up Node.js
+        uses: actions/setup-node@v1			
+        with:
+          node-version: 14.x
+      
+      - name: Install dependencies
+        if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
+        run: |
+          npm ci
+
+      - name: Install shared dependencies
+        if: ${{ github.repository == 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
+        run: |
+            npm install
+
+      - name: Set S3 variables
+        id: S3_variables
+        run: |
+          if  [[ "${{ github.repository }}" == "WeDeliverGitHub/captainServiceFrontend" ]] ; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/captain")"
+            echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/captain")"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
+          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/publicServiceWeb" ]]; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/spa/sa/public")"
+            echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/spa/sa/public")"
+            echo "##[set-output name=invalidation;]$(echo '/sa/public')"
+            echo "##[set-output name=delete-removed;]$(echo 'spa/sa/public/**')"
+          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/spaServiceWeb" ]]; then
+            echo "##[set-output name=folder;]$(echo "dist" )"
+            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/spa")"
+            echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/spa")"			
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'spa/**')"
+          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/sharedDependenciesWeb" ]]; then
+            echo "##[set-output name=folder;]$(echo "npm" )"
+            echo "##[set-output name=bucket;]$(echo ${{ steps.configs.outputs.bucket }}/apps/${{ secrets.APP_FOLDER_NAME }})"
+            echo "##[set-output name=bucketSB;]$(echo ${{ secrets.S3_SB_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }})"
+            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}')"
+            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"			
+          else
+            echo "##[set-output name=folder;]$(echo "dist" )"
+            echo "##[set-output name=bucket;]$(echo ${{ steps.configs.outputs.bucket }}/apps/${{ secrets.APP_FOLDER_NAME }})"
+            echo "##[set-output name=bucketSB;]$(echo ${{ secrets.S3_SB_APPS_BUCKET  }}/apps/${{ secrets.APP_FOLDER_NAME }})"
+            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}')"
+            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
+          fi
+
+      - name: Build the project		  
+        run: |
+          npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }}
+          
+      - name: Deploy to S3 bucket
+        uses: reggionick/s3-deploy@v3	
+        with:
+            folder: ${{ steps.S3_variables.outputs.folder }}
+            bucket: ${{ steps.S3_variables.outputs.bucket }}
+            bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
+            dist-id: ${{ steps.configs.outputs.dist_id }}
+            invalidation: ${{ steps.S3_variables.outputs.invalidation }}
+            delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
+            no-cache: true
+            private: true
+            
+      - name: Build the project	in sandbox mode	
+        if: contains(needs.detect-context.outputs.deployment-pushto, 'sandbox')
+        run: |
+          npm run deploy --branch_name=sandbox
+          
+      - name: Deploy to SB S3 bucket
+        if: contains(needs.detect-context.outputs.deployment-pushto, 'sandbox')
+        uses: reggionick/s3-deploy@v3	
+        with:
+            folder: ${{ steps.S3_variables.outputs.folder }}
+            bucket: ${{ steps.S3_variables.outputs.bucketSB }}
+            bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
+            dist-id: ${{ secrets.CLOUDFRONT_SB_APPS_DISTRIBUTION_ID }}
+            invalidation: ${{ steps.S3_variables.outputs.invalidation }}
+            delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
+            no-cache: true
+            private: true
+
+  
+  
+  send-workflow-success:
+    runs-on: ubuntu-latest
+    name: 'Send success notification'
+    permissions:
+      contents: read
+      actions: read
+    needs: [ build-and-deploy, detect-context ]
+    if: success()
+    steps:
+      - name: Set slack channel
+        id: slack_channel
+        run: |
+          echo ${{ needs.detect-context.outputs.deployment-pushto }}
+          if [[ ${{ contains(needs.detect-context.outputs.deployment-pushto, 'master' ) }} == 'true' ]]; then
+            echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT }})"
+          elif [[ ${{ contains(needs.detect-context.outputs.deployment-pushto, 'staging' ) }} == 'true' ]]; then
+            echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
+          fi
+          
+      - name: ${{ needs.detect-context.outputs.deployment-pushto }} Send success notification
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Frontend Build and Deploy'
+          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          status: 'success'
+          text: '${{ github.event.repository.name }} Frontend App Build and Deploy Succeeded ✅'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '✅'
+        env:
+          SLACK_WEBHOOK_URL: ${{ steps.slack_channel.outputs.webhookId }}
+  
+  
+  
+  send-workflow-failure:
+    runs-on: ubuntu-latest
+    name: 'Send fail notification'
+    permissions:
+      contents: read
+      actions: read
+    needs: [ build-and-deploy, detect-context ]
+    if: ${{ always() && contains(needs.*.result, 'failure') && !contains(needs.*.result, 'skipped') }}
+    steps:
+
+      - name: Set slack channel
+        id: slack_channel
+        run: |
+          echo ${{ needs.detect-context.outputs.deployment-pushto }}
+          if [[ ${{ contains(needs.detect-context.outputs.deployment-pushto, 'master' ) }} == 'true' ]]; then
+            echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT }})"
+          elif [[ ${{ contains(needs.detect-context.outputs.deployment-pushto, 'staging' ) }} == 'true' ]]; then
+            echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
+          fi
+          
+      - name: ${{ needs.detect-context.outputs.deployment-pushto }} Send fail notification
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Frontend Build and Deploy'
+          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          mention: 'here'
+          status: 'failure'
+          text: '${{ github.event.repository.name }} Frontend App Build or Deploy Failed 🔴'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '🔴'
+        env:
+          SLACK_WEBHOOK_URL: ${{ steps.slack_channel.outputs.webhookId }}
