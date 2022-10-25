@@ -199,23 +199,23 @@ jobs:
             no-cache: true
             private: true
             
-      - name: Build the project	in sandbox mode	
-        if: contains(needs.detect-context.outputs.deployment-pushto, 'sandbox')
-        run: |
-          npm run deploy --branch_name=sandbox
+#       - name: Build the project	in sandbox mode	
+#         if: contains(needs.detect-context.outputs.deployment-pushto, 'sandbox')
+#         run: |
+#           npm run deploy --branch_name=sandbox
           
-      - name: Deploy to SB S3 bucket
-        if: contains(needs.detect-context.outputs.deployment-pushto, 'sandbox')
-        uses: reggionick/s3-deploy@v3	
-        with:
-            folder: ${{ steps.S3_variables.outputs.folder }}
-            bucket: ${{ steps.S3_variables.outputs.bucketSB }}
-            bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
-            dist-id: ${{ secrets.CLOUDFRONT_SB_APPS_DISTRIBUTION_ID }}
-            invalidation: ${{ steps.S3_variables.outputs.invalidation }}
-            delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
-            no-cache: true
-            private: true
+#       - name: Deploy to SB S3 bucket
+#         if: contains(needs.detect-context.outputs.deployment-pushto, 'sandbox')
+#         uses: reggionick/s3-deploy@v3	
+#         with:
+#             folder: ${{ steps.S3_variables.outputs.folder }}
+#             bucket: ${{ steps.S3_variables.outputs.bucketSB }}
+#             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
+#             dist-id: ${{ secrets.CLOUDFRONT_SB_APPS_DISTRIBUTION_ID }}
+#             invalidation: ${{ steps.S3_variables.outputs.invalidation }}
+#             delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
+#             no-cache: true
+#             private: true
 
   
   
