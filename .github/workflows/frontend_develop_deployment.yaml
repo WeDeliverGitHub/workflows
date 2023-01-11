@@ -65,6 +65,11 @@ jobs:
             echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/captain")"
             echo "##[set-output name=invalidation;]$(echo '/')"
             echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
+          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/vehicleLeadsServiceFrontend" ]] ; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/vehicle-leads")"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'vehicle-leads/**')"
           elif [[ "${{ github.repository }}" == "WeDeliverGitHub/publicServiceWeb" ]]; then
             echo "##[set-output name=folder;]$(echo "build" )"
             echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/spa/sa/public")"
