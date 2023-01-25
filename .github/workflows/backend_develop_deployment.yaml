@@ -4,11 +4,6 @@ name: Develop 🚀
   
 on:
   workflow_call:
-    inputs:
-      labels:
-        description: The labels of the closed PR
-        required: false
-        type: string
     secrets:
       SERVICE_ECR_REPO_NAME:
         description: Service ECR repo name
@@ -28,7 +23,7 @@ jobs:
       actions: read
 
     steps:
-      - uses: hmarr/debug-action@v2
+
       - name: New build Started
         uses: 8398a7/action-slack@v3
         with:
@@ -54,12 +49,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-
       - name: Determine if test-requirements is the choice
         id: package_source
         run: |
-          echo "Labels: ${{inputs.labels}}"
-          if  [[ ${{ contains(inputs.labels, 'use-test-requirements') }} == true ]] ; then
+          labels=$(jq -r '.pull_request.labels[].name' $GITHUB_EVENT_PATH)
+          echo "Labels: $labels"
+          if echo "$labels" | grep -q "use-test-requirements"; then
             echo "USE_TEST_REQUIREMENTS=true" >> $GITHUB_OUTPUT
           else
             echo "USE_TEST_REQUIREMENTS=false" >> $GITHUB_OUTPUT
