@@ -56,8 +56,6 @@ jobs:
       - name: Determine if test-requirements is the choice
         id: package_source
         run: |
-          labels=$(jq -r '.pull_request.labels[].name' $GITHUB_EVENT_PATH)
-          echo "Labels: $labels"
           if  [[ ${{ contains(steps.pr-labels.outputs.labels, 'use-test-requirements') }} == true ]] ; then
             echo "USE_TEST_REQUIREMENTS=true" >> $GITHUB_OUTPUT
           else
