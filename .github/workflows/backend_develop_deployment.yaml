@@ -50,13 +50,14 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Determine if test-requirements is the choice
+        id: package_source
         run: |
           labels=$(jq -r '.pull_request.labels[].name' $GITHUB_EVENT_PATH)
           echo "Labels: $labels"
           if echo "$labels" | grep -q "use-test-requirements"; then
-            echo "::set-env name=USE_TEST_REQUIREMENTS::true"
+            echo "USE_TEST_REQUIREMENTS=true" >> $GITHUB_OUTPUT
           else
-            echo "::set-env name=USE_TEST_REQUIREMENTS::false"
+            echo "USE_TEST_REQUIREMENTS=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Build, tag, and push image to Amazon ECR
@@ -65,7 +66,7 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.SERVICE_ECR_REPO_NAME }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build --build-arg $use_test_requirements=${{ env.USE_TEST_REQUIREMENTS }} -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build --build-arg $use_test_requirements=${{ steps.package_source.outputs.USE_TEST_REQUIREMENTS }} -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
   update-helm-tag:
