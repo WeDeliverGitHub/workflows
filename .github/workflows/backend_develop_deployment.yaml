@@ -4,11 +4,6 @@ name: Develop 🚀
   
 on:
   workflow_call:
-    inputs:
-      labels:
-        description: The labels of the closed PR
-        required: false
-        type: string
     secrets:
       SERVICE_ECR_REPO_NAME:
         description: Service ECR repo name
@@ -28,7 +23,7 @@ jobs:
       actions: read
 
     steps:
-
+      - uses: hmarr/debug-action@v2
       - name: New build Started
         uses: 8398a7/action-slack@v3
         with:
