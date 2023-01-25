@@ -55,7 +55,6 @@ jobs:
         run: |
           echo "Labels: ${{inputs.labels}}"
           if  [[ ${{ contains(inputs.labels, 'use-test-requirements') }} == true ]] ; then
-          if echo "$labels" | grep -q "use-test-requirements"; then
             echo "USE_TEST_REQUIREMENTS=true" >> $GITHUB_OUTPUT
           else
             echo "USE_TEST_REQUIREMENTS=false" >> $GITHUB_OUTPUT
