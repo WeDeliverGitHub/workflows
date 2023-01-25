@@ -1,3 +1,4 @@
+# this args used to determine if we need to use test-packages or release-packages
 ARG use_test_requirements=false
 
 FROM python:3.7-buster
