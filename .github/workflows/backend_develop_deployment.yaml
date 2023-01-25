@@ -4,6 +4,11 @@ name: Develop 🚀
   
 on:
   workflow_call:
+    inputs:
+      labels:
+        description: The labels of the closed PR
+        required: false
+        type: string
     secrets:
       SERVICE_ECR_REPO_NAME:
         description: Service ECR repo name
@@ -49,14 +54,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Get PR labels
-        id: pr-labels
-        uses: joerick/pr-labels-action@v1.0.7
 
       - name: Determine if test-requirements is the choice
         id: package_source
         run: |
-          if  [[ ${{ contains(steps.pr-labels.outputs.labels, 'use-test-requirements') }} == true ]] ; then
+          echo "Labels: ${{inputs.labels}}"
+          if  [[ ${{ contains(inputs.labels, 'use-test-requirements') }} == true ]] ; then
+          if echo "$labels" | grep -q "use-test-requirements"; then
             echo "USE_TEST_REQUIREMENTS=true" >> $GITHUB_OUTPUT
           else
             echo "USE_TEST_REQUIREMENTS=false" >> $GITHUB_OUTPUT
