@@ -49,12 +49,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Get PR labels
+        id: pr-labels
+        uses: joerick/pr-labels-action@v1.0.7
+
       - name: Determine if test-requirements is the choice
         id: package_source
         run: |
-          labels=$(jq -r '.pull_request.labels[].name' $GITHUB_EVENT_PATH)
+          labels=${{ steps.pr-labels.outputs.labels }}
           echo "Labels: $labels"
-          if echo "$labels" | grep -q "use-test-requirements"; then
+          if  [[ ${{ contains(steps.pr-labels.outputs.labels, 'use-test-requirements') }} == true ]] ; then
             echo "USE_TEST_REQUIREMENTS=true" >> $GITHUB_OUTPUT
           else
             echo "USE_TEST_REQUIREMENTS=false" >> $GITHUB_OUTPUT
