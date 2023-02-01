@@ -169,6 +169,12 @@ jobs:
             echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/loan")"
             echo "##[set-output name=invalidation;]$(echo '/')"
             echo "##[set-output name=delete-removed;]$(echo 'loan/**')"
+          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/careemLeadsWeb" ]] ; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/careem")"
+            echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/careem")"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'careem/**')"
           elif [[ "${{ github.repository }}" == "WeDeliverGitHub/publicServiceWeb" ]]; then
             echo "##[set-output name=folder;]$(echo "build" )"
             echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/spa/sa/public")"
