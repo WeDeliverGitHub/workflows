@@ -183,10 +183,10 @@ jobs:
             echo "##[set-output name=delete-removed;]$(echo 'thrivve/**')"
           elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/thrivve_website" ]] ; then
             echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/thrivve-website")"
-            echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/thrivve-website")"
+            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/thrivve_website")"
+            echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/thrivve_website")"
             echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'thrivve-website/**')"
+            echo "##[set-output name=delete-removed;]$(echo 'thrivve_website/**')"
           elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/react-website" ]] ; then
             echo "##[set-output name=folder;]$(echo "build" )"
             echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/website")"
