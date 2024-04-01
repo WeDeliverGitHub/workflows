@@ -86,13 +86,13 @@ jobs:
             echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT }})"
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
             echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_PROD_APPS_BUCKET }})"
-            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }})"
+            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }})"
             echo "##[set-output name=deployBranchName;]$(echo ${{ 'master' }})"
           elif [[ ${{ contains(needs.detect-context.outputs.deployment-pushto, 'staging' ) }} == 'true' ]]; then
             echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
             echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_STAGING_APPS_BUCKET }})"
-            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }})"
+            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }})"
             echo "##[set-output name=deployBranchName;]$(echo ${{ 'staging' }})"
           fi
           
@@ -193,6 +193,7 @@ jobs:
             echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/website")"
             echo "##[set-output name=invalidation;]$(echo '/')"
             echo "##[set-output name=delete-removed;]$(echo 'website/**')"
+            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_THRIVVE_WEBSITE_DISTRIBUTION_ID }})"
           elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/CRMWeb" ]] ; then
             echo "##[set-output name=folder;]$(echo "build" )"
             echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/customer")"
@@ -241,7 +242,7 @@ jobs:
             folder: ${{ steps.S3_variables.outputs.folder }}
             bucket: ${{ steps.S3_variables.outputs.bucket }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
-            dist-id: ${{ steps.configs.outputs.dist_id }}
+            dist-id: ${{ steps.s3_variables.outputs.dist_id || steps.configs.outputs.dist_id }}
             invalidation: ${{ steps.S3_variables.outputs.invalidation }}
             delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
             no-cache: true
