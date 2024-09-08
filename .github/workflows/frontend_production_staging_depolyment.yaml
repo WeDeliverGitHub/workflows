@@ -181,6 +181,12 @@ jobs:
             echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/kyc")"
             echo "##[set-output name=invalidation;]$(echo '/')"
             echo "##[set-output name=delete-removed;]$(echo 'kyc/**')"
+          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/UberReferralWeb" ]] ; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/referral")"
+            echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/referral")"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'referral/**')"
           elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/uberLeadsWeb" ]] ; then
             echo "##[set-output name=folder;]$(echo "build" )"
             echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/uber")"
