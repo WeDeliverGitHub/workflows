@@ -80,6 +80,11 @@ jobs:
             echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/careem")"
             echo "##[set-output name=invalidation;]$(echo '/')"
             echo "##[set-output name=delete-removed;]$(echo 'careem/**')"
+          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/faqsWeb" ]] ; then
+            echo "##[set-output name=folder;]$(echo "build" )"
+            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/faqs")"
+            echo "##[set-output name=invalidation;]$(echo '/')"
+            echo "##[set-output name=delete-removed;]$(echo 'faqs/**')"
           elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/KYCDocumentsPortalWeb" ]] ; then
             echo "##[set-output name=folder;]$(echo "build" )"
             echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/kyc")"
