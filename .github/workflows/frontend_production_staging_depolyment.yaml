@@ -86,12 +86,14 @@ jobs:
             echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT }})"
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_PROD_ACCOUNT_ID }})"
             echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_PROD_APPS_BUCKET }})"
+            echo "##[set-output name=website_bucket;]$(echo ${{ 'wedeliver-app-main-production-bucket' }})"
             echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }})"
             echo "##[set-output name=deployBranchName;]$(echo ${{ 'master' }})"
           elif [[ ${{ contains(needs.detect-context.outputs.deployment-pushto, 'staging' ) }} == 'true' ]]; then
             echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
             echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
             echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_STAGING_APPS_BUCKET }})"
+            echo "##[set-output name=website_bucket;]$(echo ${{ 'wedeliver-app-main-staging-bucket' }})"
             echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }})"
             echo "##[set-output name=deployBranchName;]$(echo ${{ 'staging' }})"
           fi
@@ -207,10 +209,9 @@ jobs:
             echo "##[set-output name=delete-removed;]$(echo 'thrivve/**')"
           elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/thrivve_website" ]] ; then
             echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/thrivve_website")"
-            echo "##[set-output name=bucketSB;]$(echo "${{ secrets.S3_SB_APPS_BUCKET }}/thrivve_website")"
+            echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.website_bucket }}")"
             echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'thrivve_website/**')"
+            echo "##[set-output name=delete-removed;]$(echo '**')"
             echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_THRIVVE_WEBSITE_DISTRIBUTION_ID }})"
           elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/react-website" ]] ; then
             echo "##[set-output name=folder;]$(echo "build" )"
