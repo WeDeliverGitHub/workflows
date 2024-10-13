@@ -212,7 +212,6 @@ jobs:
             echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.website_bucket }}")"
             echo "##[set-output name=invalidation;]$(echo '/')"
             echo "##[set-output name=delete-removed;]$(echo '**')"
-            echo "##[set-output name=dist_id;]$(echo ${{ secrets.CLOUDFRONT_PROD_THRIVVE_WEBSITE_DISTRIBUTION_ID }})"
           elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/react-website" ]] ; then
             echo "##[set-output name=folder;]$(echo "build" )"
             echo "##[set-output name=bucket;]$(echo "${{ steps.configs.outputs.bucket }}/website")"
