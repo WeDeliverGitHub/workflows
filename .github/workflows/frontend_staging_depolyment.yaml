@@ -1,0 +1,134 @@
+name: Staging 🚀
+
+on:
+  workflow_call:
+
+jobs:
+
+  detect-staging-label:
+    runs-on: ubuntu-latest
+    outputs:
+      label_found: ${{ steps.check_label.outputs.label_found }}
+    steps:
+      - name: Check for 'staging' label
+        id: check_label
+        run: |
+          if [[ ${{ contains(join(github.event.pull_request.labels.*.name, ','), 'staging') }} == 'false' ]]; then
+            echo "No 'staging' label found. Skipping the workflow."
+            echo "::set-output name=label_found::false"
+            exit 0
+          else
+            echo "::set-output name=label_found::true"
+
+  build-and-deploy:
+    needs: detect-staging-label
+    runs-on: ubuntu-latest
+    if: needs.detect-staging-label.outputs.label_found == 'true'
+    name: 'Build and Deploy'
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Set config variables
+        id: configs
+        run: |
+          echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
+          echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
+          echo "##[set-output name=bucket;]$(echo ${{ vars.S3_STAGING_BUCKET || secrets.S3_STAGING_APPS_BUCKET }})"
+          echo "##[set-output name=distId;]$(echo ${{ secrets.CLOUDFRONT_STAGING_DISTRIBUTION_ID || secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }})"
+          echo "##[set-output name=deployBranchName;]$(echo 'staging')"
+          echo "##[set-output name=folder;]$(echo 'build')"
+          echo "##[set-output name=invalidation;]$(echo ${{ vars.S3_BUCKET_PATH || '/' }})"
+          echo "##[set-output name=deleteRemoved;]$(echo '**')"
+
+      - name: New build Started
+        uses: 8398a7/action-slack@v3
+        with:
+          text: 'New Build and Deploy Started for ${{ github.event.repository.name }} 🚀'
+          status: 'cancelled'
+          author_name: 'Frontend Build and Deploy'
+          icon_emoji: ':rocket:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ steps.configs.outputs.webhookId }}
+
+      - name: Checkout PR code
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Reconfigure git to use HTTP authentication
+        run: |
+          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: 'arn:aws:iam::${{ steps.configs.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Build the project
+        run: |
+          npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }}
+
+      - name: Deploy to S3 bucket
+        uses: reggionick/s3-deploy@v3
+        with:
+            folder: ${{ steps.configs.outputs.folder }}
+            bucket: ${{ steps.configs.outputs.bucket }}
+            bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
+            dist-id: ${{ steps.configs.outputs.distId }}
+            invalidation: ${{ steps.configs.outputs.invalidation }}
+            delete-removed: ${{ steps.configs.outputs.deleteRemoved }}
+            no-cache: true
+            private: true
+
+  send-workflow-success:
+    needs: [build-and-deploy, detect-staging-label]
+    runs-on: ubuntu-latest
+    if: needs.detect-staging-label.outputs.label_found == 'true' && success()
+    name: 'Send success notification'
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Send success notification
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Frontend Build and Deploy'
+          status: 'success'
+          text: '${{ github.event.repository.name }} Frontend App Build and Deploy Succeeded ✅'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '✅'
+        env:
+          SLACK_WEBHOOK_URL: ${{ steps.configs.outputs.webhookId }}
+
+  send-workflow-failure:
+    runs-on: ubuntu-latest
+    name: 'Send fail notification'
+    permissions:
+      contents: read
+      actions: read
+    needs: [build-and-deploy, detect-staging-label]
+    if: needs.detect-staging-label.outputs.label_found == 'true' && failure()
+    steps:
+      - name: Send fail notification
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Frontend Build and Deploy'
+          mention: 'here'
+          status: 'failure'
+          text: '${{ github.event.repository.name }} Frontend App Build or Deploy Failed 🔴'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '🔴'
+        env:
+          SLACK_WEBHOOK_URL: ${{ steps.configs.outputs.webhookId }}
