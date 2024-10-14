@@ -13,11 +13,13 @@ jobs:
       - name: Check for 'staging' label
         id: check_label
         run: |
-          if [[ ${{ contains(join(github.event.pull_request.labels.*.name, ','), 'staging') }} == 'false' ]]; then
+          if [[ "${{ contains(join(github.event.pull_request.labels.*.name, ','), 'staging') }}" == "false" ]]; then
             echo "No 'staging' label found. Skipping the workflow."
             echo "label_found=false" >> $GITHUB_ENV
+            exit 0
           else
             echo "label_found=true" >> $GITHUB_ENV
+  
 
   build-and-deploy:
     needs: detect-staging-label
