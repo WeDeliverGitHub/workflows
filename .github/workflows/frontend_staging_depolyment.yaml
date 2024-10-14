@@ -8,7 +8,7 @@ jobs:
   detect-staging-label:
     runs-on: ubuntu-latest
     outputs:
-      label_found: ${{ env.label_found }}
+      label_found: ${{ env.LABEL_FOUND }}
     steps:
       - name: Check if 'S3_BUCKET_PATH' repo variable is set
         run: |
@@ -20,10 +20,10 @@ jobs:
         id: check_label
         run: |
           if [[ "${{ contains(join(github.event.pull_request.labels.*.name, ','), 'staging') }}" == "true" ]]; then
-            echo "label_found=true" >> $GITHUB_ENV
+            echo "LABEL_FOUND=true" >> $GITHUB_ENV
           else
             echo "No 'staging' label found. Skipping the workflow."
-            echo "label_found=false" >> $GITHUB_ENV
+            echo "LABEL_FOUND=false" >> $GITHUB_ENV
           fi
       
 
@@ -33,7 +33,7 @@ jobs:
     if: needs.detect-staging-label.outputs.label_found == 'true'
     name: 'Build and Deploy'
     outputs:
-      webhookId: ${{ env.WEBHOOK_ID }}
+      webhook_id: ${{ env.WEBHOOK_ID }}
     permissions:
       id-token: write
       contents: read
@@ -119,7 +119,7 @@ jobs:
           fields: repo,message,commit,author,eventName,ref,workflow,job
           icon_emoji: '✅'
         env:
-          SLACK_WEBHOOK_URL: ${{ needs.build-and-deploy.outputs.webhookId }}
+          SLACK_WEBHOOK_URL: ${{ needs.build-and-deploy.outputs.webhook_id }}
 
   send-workflow-failure:
     runs-on: ubuntu-latest
@@ -140,4 +140,4 @@ jobs:
           fields: repo,message,commit,author,eventName,ref,workflow,job
           icon_emoji: '🔴'
         env:
-          SLACK_WEBHOOK_URL: ${{ needs.build-and-deploy.outputs.webhookId }}
+          SLACK_WEBHOOK_URL: ${{ needs.build-and-deploy.outputs.webhook_id }}
