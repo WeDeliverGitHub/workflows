@@ -33,7 +33,7 @@ jobs:
     if: needs.detect-staging-label.outputs.label_found == 'true'
     name: 'Build and Deploy'
     outputs:
-      webhook_id: ${{ 'test' }}
+      webhook_id: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }}
     permissions:
       id-token: write
       contents: read
