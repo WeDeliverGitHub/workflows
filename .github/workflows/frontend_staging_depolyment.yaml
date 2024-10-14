@@ -8,7 +8,7 @@ jobs:
   detect-staging-label:
     runs-on: ubuntu-latest
     outputs:
-      label_found: ${{ steps.check_label.outputs.label_found }}
+      label_found: ${{ env.label_found }}
     steps:
       - name: Check for 'staging' label
         id: check_label
@@ -23,7 +23,7 @@ jobs:
   build-and-deploy:
     needs: detect-staging-label
     runs-on: ubuntu-latest
-    if: ${{ needs.detect-staging-label.outputs.label_found == 'true' }}
+    if: needs.detect-staging-label.outputs.label_found == 'true'
     name: 'Build and Deploy'
     permissions:
       id-token: write
