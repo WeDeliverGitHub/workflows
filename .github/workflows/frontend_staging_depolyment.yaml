@@ -45,7 +45,7 @@ jobs:
           echo "DIST_ID=${{ secrets.CLOUDFRONT_STAGING_DISTRIBUTION_ID || secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=staging" >> $GITHUB_ENV
           echo "FOLDER=build" >> $GITHUB_ENV
-          echo "INVALIDATION=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
+          echo "UPLOAD_PATH=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
           echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
       - name: New build Started
@@ -91,9 +91,9 @@ jobs:
         with:
             folder: ${{ env.FOLDER }}
             bucket: ${{ env.BUCKET }}
+            key-prefix: ${{ env.UPLOAD_PATH }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
             dist-id: ${{ env.DIST_ID }}
-            invalidation: ${{ env.INVALIDATION }}
             delete-removed: ${{ env.DELETE_REMOVED }}
             no-cache: true
             private: true
