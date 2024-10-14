@@ -25,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.detect-staging-label.outputs.label_found == 'true'
     name: 'Build and Deploy'
+    outputs:
+      webhookId: ${{ env.WEBHOOK_ID }}
     permissions:
       id-token: write
       contents: read
@@ -33,14 +35,14 @@ jobs:
       - name: Set config variables
         id: configs
         run: |
-          echo "##[set-output name=webhookId;]$(echo ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }})"
-          echo "##[set-output name=accountId;]$(echo ${{ secrets.AWS_STAGING_ACCOUNT_ID }})"
-          echo "##[set-output name=bucket;]$(echo ${{ vars.S3_STAGING_BUCKET || secrets.S3_STAGING_APPS_BUCKET }})"
-          echo "##[set-output name=distId;]$(echo ${{ secrets.CLOUDFRONT_STAGING_DISTRIBUTION_ID || secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }})"
-          echo "##[set-output name=deployBranchName;]$(echo 'staging')"
-          echo "##[set-output name=folder;]$(echo 'build')"
-          echo "##[set-output name=invalidation;]$(echo ${{ vars.S3_BUCKET_PATH || '/' }})"
-          echo "##[set-output name=deleteRemoved;]$(echo '**')"
+          echo "WEBHOOK_ID=${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }}" >> $GITHUB_ENV
+          echo "ACCOUNT_ID=${{ secrets.AWS_STAGING_ACCOUNT_ID }}" >> $GITHUB_ENV
+          echo "BUCKET=${{ vars.S3_STAGING_BUCKET || secrets.S3_STAGING_APPS_BUCKET }}" >> $GITHUB_ENV
+          echo "DIST_ID=${{ secrets.CLOUDFRONT_STAGING_DISTRIBUTION_ID || secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
+          echo "DEPLOY_BRANCH_NAME=staging" >> $GITHUB_ENV
+          echo "FOLDER=build" >> $GITHUB_ENV
+          echo "INVALIDATION=${{ vars.S3_BUCKET_PATH || '/' }}" >> $GITHUB_ENV
+          echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
       - name: New build Started
         uses: 8398a7/action-slack@v3
@@ -50,7 +52,7 @@ jobs:
           author_name: 'Frontend Build and Deploy'
           icon_emoji: ':rocket:'
         env:
-          SLACK_WEBHOOK_URL: ${{ steps.configs.outputs.webhookId }}
+          SLACK_WEBHOOK_URL: ${{ env.WEBHOOK_ID }}
 
       - name: Checkout PR code
         uses: actions/checkout@v3
@@ -64,7 +66,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: 'arn:aws:iam::${{ steps.configs.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
+          role-to-assume: 'arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Set up Node.js
@@ -78,17 +80,17 @@ jobs:
 
       - name: Build the project
         run: |
-          npm run deploy --branch_name=${{ steps.configs.outputs.deployBranchName }}
+          npm run deploy --branch_name=${{ env.DEPLOY_BRANCH_NAME }}
 
       - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3
         with:
-            folder: ${{ steps.configs.outputs.folder }}
-            bucket: ${{ steps.configs.outputs.bucket }}
+            folder: ${{ env.FOLDER }}
+            bucket: ${{ env.BUCKET }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
-            dist-id: ${{ steps.configs.outputs.distId }}
-            invalidation: ${{ steps.configs.outputs.invalidation }}
-            delete-removed: ${{ steps.configs.outputs.deleteRemoved }}
+            dist-id: ${{ env.DIST_ID }}
+            invalidation: ${{ env.INVALIDATION }}
+            delete-removed: ${{ env.DELETE_REMOVED }}
             no-cache: true
             private: true
 
@@ -110,7 +112,7 @@ jobs:
           fields: repo,message,commit,author,eventName,ref,workflow,job
           icon_emoji: '✅'
         env:
-          SLACK_WEBHOOK_URL: ${{ steps.configs.outputs.webhookId }}
+          SLACK_WEBHOOK_URL: ${{ needs.build-and-deploy.outputs.webhookId }}
 
   send-workflow-failure:
     runs-on: ubuntu-latest
@@ -131,4 +133,4 @@ jobs:
           fields: repo,message,commit,author,eventName,ref,workflow,job
           icon_emoji: '🔴'
         env:
-          SLACK_WEBHOOK_URL: ${{ steps.configs.outputs.webhookId }}
+          SLACK_WEBHOOK_URL: ${{ needs.build-and-deploy.outputs.webhookId }}
