@@ -32,8 +32,6 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.detect-staging-label.outputs.label_found == 'true'
     name: 'Build and Deploy'
-    outputs:
-      webhook_id: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }}
     permissions:
       id-token: write
       contents: read
@@ -42,7 +40,6 @@ jobs:
       - name: Set config variables
         id: configs
         run: |
-          echo "WEBHOOK_ID=${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }}" >> $GITHUB_ENV
           echo "ACCOUNT_ID=${{ secrets.AWS_STAGING_ACCOUNT_ID }}" >> $GITHUB_ENV
           echo "BUCKET=${{ vars.S3_STAGING_BUCKET || secrets.S3_STAGING_APPS_BUCKET }}" >> $GITHUB_ENV
           echo "DIST_ID=${{ secrets.CLOUDFRONT_STAGING_DISTRIBUTION_ID || secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
@@ -59,7 +56,7 @@ jobs:
           author_name: 'Frontend Build and Deploy'
           icon_emoji: ':rocket:'
         env:
-          SLACK_WEBHOOK_URL: ${{ env.WEBHOOK_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }}
 
       - name: Checkout PR code
         uses: actions/checkout@v3
@@ -119,7 +116,7 @@ jobs:
           fields: repo,message,commit,author,eventName,ref,workflow,job
           icon_emoji: '✅'
         env:
-          SLACK_WEBHOOK_URL: ${{ needs.build-and-deploy.outputs.webhook_id }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }}
 
   send-workflow-failure:
     runs-on: ubuntu-latest
@@ -140,4 +137,4 @@ jobs:
           fields: repo,message,commit,author,eventName,ref,workflow,job
           icon_emoji: '🔴'
         env:
-          SLACK_WEBHOOK_URL: ${{ needs.build-and-deploy.outputs.webhook_id }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_STAGING }}
