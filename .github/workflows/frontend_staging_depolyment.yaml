@@ -10,6 +10,12 @@ jobs:
     outputs:
       label_found: ${{ env.label_found }}
     steps:
+      - name: Check if 'S3_BUCKET_PATH' repo variable is set
+        run: |
+          if [ -z "${{ vars.S3_BUCKET_PATH }}" ]; then
+            echo "S3_BUCKET_PATH repo variable is not set. Exiting workflow."
+            exit 1
+          fi
       - name: Check for 'staging' label
         id: check_label
         run: |
@@ -19,6 +25,7 @@ jobs:
             echo "No 'staging' label found. Skipping the workflow."
             echo "label_found=false" >> $GITHUB_ENV
           fi
+      
 
   build-and-deploy:
     needs: detect-staging-label
@@ -41,7 +48,7 @@ jobs:
           echo "DIST_ID=${{ secrets.CLOUDFRONT_STAGING_DISTRIBUTION_ID || secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=staging" >> $GITHUB_ENV
           echo "FOLDER=build" >> $GITHUB_ENV
-          echo "INVALIDATION=${{ vars.S3_BUCKET_PATH || '/' }}" >> $GITHUB_ENV
+          echo "INVALIDATION=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
           echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
       - name: New build Started
