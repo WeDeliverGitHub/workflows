@@ -23,7 +23,7 @@ jobs:
   build-and-deploy:
     needs: detect-staging-label
     runs-on: ubuntu-latest
-    if: needs.detect-staging-label.outputs.label_found == 'true'
+    if: ${{ needs.detect-staging-label.outputs.label_found == 'true' }}
     name: 'Build and Deploy'
     permissions:
       id-token: write
