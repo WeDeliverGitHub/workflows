@@ -41,7 +41,7 @@ jobs:
         id: configs
         run: |
           echo "ACCOUNT_ID=${{ secrets.AWS_STAGING_ACCOUNT_ID }}" >> $GITHUB_ENV
-          echo "BUCKET=${{ vars.S3_STAGING_BUCKET || secrets.S3_STAGING_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
+          echo "BUCKET=${{ secrets.S3_STAGING_BUCKET || secrets.S3_STAGING_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
           echo "DIST_ID=${{ secrets.CLOUDFRONT_STAGING_DISTRIBUTION_ID || secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=staging" >> $GITHUB_ENV
           echo "FOLDER=build" >> $GITHUB_ENV

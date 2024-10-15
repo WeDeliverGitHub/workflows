@@ -41,7 +41,7 @@ jobs:
         id: configs
         run: |
           echo "ACCOUNT_ID=${{ secrets.AWS_PROD_ACCOUNT_ID }}" >> $GITHUB_ENV
-          echo "BUCKET=${{ vars.S3_PROD_BUCKET || secrets.S3_PROD_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
+          echo "BUCKET=${{ secrets.S3_PROD_BUCKET || secrets.S3_PROD_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
           echo "DIST_ID=${{ secrets.CLOUDFRONT_PROD_DISTRIBUTION_ID || secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=master" >> $GITHUB_ENV
           echo "FOLDER=build" >> $GITHUB_ENV
