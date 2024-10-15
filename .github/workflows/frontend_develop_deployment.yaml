@@ -44,7 +44,7 @@ jobs:
           echo "BUCKET=${{ secrets.S3_DEV_BUCKET || secrets.S3_DEV_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
           echo "DIST_ID=${{ secrets.CLOUDFRONT_DEV_DISTRIBUTION_ID || secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=develop" >> $GITHUB_ENV
-          echo "FOLDER=build" >> $GITHUB_ENV
+          echo "FOLDER=$(if [[ ${vars.S3_BUCKET_PATH} == *"/apps/"* ]]; then echo 'dist'; else echo 'build'; fi)" >> $GITHUB_ENV
           echo "UPLOAD_PATH=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
           echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
