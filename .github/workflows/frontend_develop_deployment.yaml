@@ -1,209 +1,136 @@
-name: Develop 🚀
+name: Staging 🚀
 
 on:
   workflow_call:
+
 jobs:
 
-  build-and-deploy:
+  detect-merge:
     runs-on: ubuntu-latest
-    name: 'Build And Deploy'
+    outputs:
+      is_merged: ${{ env.IS_MERGED }}
+    steps:
+      - name: Check if 'S3_BUCKET_PATH' repo variable is set
+        run: |
+          if [ -z "${{ vars.S3_BUCKET_PATH }}" ]; then
+            echo "S3_BUCKET_PATH repo variable is not set. Exiting workflow."
+            exit 1
+          fi
+      - name: Check for merge action
+        id: check_merge
+        run: |
+          if  [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]] ; then
+            echo "IS_MERGED=true" >> $GITHUB_ENV
+          else
+            echo "No 'master' merge detected. Skipping the workflow."
+            echo "IS_MERGED=false" >> $GITHUB_ENV
+          fi
+      
+
+  build-and-deploy:
+    needs: detect-merge
+    runs-on: ubuntu-latest
+    if: needs.detect-merge.outputs.is_merged == 'true'
+    name: 'Build and Deploy'
     permissions:
-      id-token: write	
+      id-token: write
       contents: read
       actions: read
     steps:
+      - name: Set config variables
+        id: configs
+        run: |
+          echo "ACCOUNT_ID=${{ secrets.AWS_DEV_ACCOUNT_ID }}" >> $GITHUB_ENV
+          echo "BUCKET=${{ secrets.S3_DEV_BUCKET || secrets.S3_DEV_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
+          echo "DIST_ID=${{ secrets.CLOUDFRONT_DEV_DISTRIBUTION_ID || secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
+          echo "DEPLOY_BRANCH_NAME=develop" >> $GITHUB_ENV
+          echo "FOLDER=build" >> $GITHUB_ENV
+          echo "UPLOAD_PATH=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
+          echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
       - name: New build Started
         uses: 8398a7/action-slack@v3
         with:
-          text: 'New Build and Deploy Started for Develop 🚀'
+          text: 'New Build and Deploy Started for ${{ github.event.repository.name }} 🚀'
           status: 'cancelled'
           author_name: 'Frontend Build and Deploy'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          fields: repo,ref,message,author,eventName,workflow
           icon_emoji: ':rocket:'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
-          
-      - name: Checkout repository
-        uses: actions/checkout@v2
+
+      - name: Checkout PR code
+        uses: actions/checkout@v3
         with:
           persist-credentials: false
-          
+
       - name: Reconfigure git to use HTTP authentication
-        run: >
-          git config --global url."https://github.com/".insteadOf
-          ssh://git@github.com/
-      
-      
+        run: |
+          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1	
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: 'arn:aws:iam::${{ secrets.AWS_DEV_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
+          role-to-assume: 'arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-          
+
       - name: Set up Node.js
-        uses: actions/setup-node@v1			
+        uses: actions/setup-node@v1
         with:
-          node-version: 16.x # it was 14.x
-      
+          node-version: 16.x
+
       - name: Install dependencies
-        if: ${{ github.repository != 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
         run: |
-            npm ci
+          npm ci
 
-      - name: Install shared dependencies
-        if: ${{ github.repository == 'WeDeliverGitHub/sharedDependenciesWeb' }}	  
+      - name: Build the project
         run: |
-            npm install
+          npm run deploy --branch_name=${{ env.DEPLOY_BRANCH_NAME }}
 
-      - name: Set S3 variables
-        id: S3_variables
-        run: |
-          if  [[ "${{ github.repository }}" == "WeDeliverGitHub/captainServiceFrontend" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/captain")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'captain/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/vehicleLeadsServiceFrontend" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/vehicle-leads")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'vehicle-leads/**')"          
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/leadFinancingServiceFrontend" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/loan")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'loan/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/careemLeadsWeb" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/careem")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'careem/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/faqsWeb" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/faqs")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'faqs/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/KYCDocumentsPortalWeb" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/kyc")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'kyc/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/UberReferralWeb" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/referral")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'referral/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/uberLeadsWeb" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/uber")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'uber/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/ThrivveWeb" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/thrivve")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'thrivve/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/thrivve_website" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/thrivve_website")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'thrivve_website/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/react-website" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/website")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'website/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/CRMWeb" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/customer")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'customer/**')"
-          elif  [[ "${{ github.repository }}" == "WeDeliverGitHub/TamwheelWeb" ]] ; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/tamwheel")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'tamwheel/**')"
-          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/publicServiceWeb" ]]; then
-            echo "##[set-output name=folder;]$(echo "build" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/spa/sa/public")"
-            echo "##[set-output name=invalidation;]$(echo '/sa/public')"
-            echo "##[set-output name=delete-removed;]$(echo 'spa/sa/public/**')"
-          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/spaServiceWeb" ]]; then
-            echo "##[set-output name=folder;]$(echo "dist" )"
-            echo "##[set-output name=bucket;]$(echo "${{ secrets.S3_DEV_APPS_BUCKET }}/spa")"
-            echo "##[set-output name=invalidation;]$(echo '/')"
-            echo "##[set-output name=delete-removed;]$(echo 'spa/**')"
-          elif [[ "${{ github.repository }}" == "WeDeliverGitHub/sharedDependenciesWeb" ]]; then
-            echo "##[set-output name=folder;]$(echo "npm" )"
-            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }})"
-            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}')"
-            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"			
-          else
-            echo "##[set-output name=folder;]$(echo "dist" )"
-            echo "##[set-output name=bucket;]$(echo ${{ secrets.S3_DEV_APPS_BUCKET }}/apps/${{ secrets.APP_FOLDER_NAME }})"
-            echo "##[set-output name=invalidation;]$(echo '/apps/${{ secrets.APP_FOLDER_NAME }}')"
-            echo "##[set-output name=delete-removed;]$(echo 'apps/${{ secrets.APP_FOLDER_NAME }}/**')"
-          fi
-
-      - name: Build the project		  
-        run: |
-          npm run deploy --branch_name=develop
-          
-      - name: Deploy-to-S3
-        uses: reggionick/s3-deploy@v3	
+      - name: Deploy to S3 bucket
+        uses: reggionick/s3-deploy@v4
         with:
-            folder: ${{ steps.S3_variables.outputs.folder }}
-            bucket: ${{ steps.S3_variables.outputs.bucket }}
+            folder: ${{ env.FOLDER }}
+            bucket: ${{ env.BUCKET }}
+            key-prefix: ${{ env.UPLOAD_PATH }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
-            dist-id: ${{ secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}
-            invalidation: ${{ steps.S3_variables.outputs.invalidation }}
-            delete-removed: ${{ steps.S3_variables.outputs.delete-removed }}
+            dist-id: ${{ env.DIST_ID }}
+            delete-removed: ${{ env.DELETE_REMOVED }}
             no-cache: true
             private: true
 
-  
-  
   send-workflow-success:
+    needs: [build-and-deploy, detect-merge]
     runs-on: ubuntu-latest
+    if: needs.detect-merge.outputs.is_merged == 'true' && success()
     name: 'Send success notification'
     permissions:
       contents: read
       actions: read
-    needs: [ build-and-deploy ]
-    if: success()
     steps:
-
-      - name: Send notification when a build is done DEVELOP
+      - name: Send success notification
         uses: 8398a7/action-slack@v3
         with:
           author_name: 'Frontend Build and Deploy'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
           status: 'success'
           text: '${{ github.event.repository.name }} Frontend App Build and Deploy Succeeded ✅'
           fields: repo,message,commit,author,eventName,ref,workflow,job
           icon_emoji: '✅'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
-  
-  
-  
+
   send-workflow-failure:
     runs-on: ubuntu-latest
     name: 'Send fail notification'
     permissions:
       contents: read
       actions: read
-    needs: [ build-and-deploy ]
-    if: ${{ always() && contains(needs.*.result, 'failure') && !contains(needs.*.result, 'skipped') }}
+    needs: [build-and-deploy, detect-merge]
+    if: needs.detect-merge.outputs.is_merged == 'true' && failure()
     steps:
-
-      - name: Send notification when a build is fail DEVELOP
+      - name: Send fail notification
         uses: 8398a7/action-slack@v3
         with:
           author_name: 'Frontend Build and Deploy'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
           mention: 'here'
           status: 'failure'
           text: '${{ github.event.repository.name }} Frontend App Build or Deploy Failed 🔴'
