@@ -1,4 +1,4 @@
-name: Staging 🚀
+name: Develop 🚀
 
 on:
   workflow_call:
