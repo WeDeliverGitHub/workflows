@@ -19,8 +19,8 @@ jobs:
       - name: Check for merge action
         id: check_merge
         run: |
-          if  [[ ${{ github.event.action }} == "closed" && ${{ github.event.pull_request.merged }} == true ]] ; then
-            echo "IS_MERGED=false" >> $GITHUB_ENV
+          if  [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]] ; then
+            echo "IS_MERGED=true" >> $GITHUB_ENV
           else
             echo "No 'master' merge detected. Skipping the workflow."
             echo "IS_MERGED=false" >> $GITHUB_ENV
