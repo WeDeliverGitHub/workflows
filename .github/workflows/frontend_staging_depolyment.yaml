@@ -91,7 +91,6 @@ jobs:
         with:
             folder: ${{ env.FOLDER }}
             bucket: ${{ env.BUCKET }}
-            key-prefix: ${{ env.UPLOAD_PATH }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
             dist-id: ${{ env.DIST_ID }}
             delete-removed: ${{ env.DELETE_REMOVED }}
