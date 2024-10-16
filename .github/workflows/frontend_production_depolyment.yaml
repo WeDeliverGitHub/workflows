@@ -39,13 +39,15 @@ jobs:
     steps:
       - name: Set config variables
         id: configs
+        env:
+          S3_BUCKET_PATH: ${{ vars.S3_BUCKET_PATH }}
         run: |
           echo "ACCOUNT_ID=${{ secrets.AWS_PROD_ACCOUNT_ID }}" >> $GITHUB_ENV
           echo "BUCKET=${{ secrets.S3_PROD_BUCKET || secrets.S3_PROD_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
           echo "DIST_ID=${{ secrets.CLOUDFRONT_PROD_DISTRIBUTION_ID || secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=master" >> $GITHUB_ENV
-          echo "FOLDER=$(if [[ ${vars.S3_BUCKET_PATH} == *"/apps/"* ]]; then echo 'dist'; else echo 'build'; fi)" >> $GITHUB_ENV
-          echo "UPLOAD_PATH=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
+          echo "FOLDER=$(if [[ $S3_BUCKET_PATH == *"/apps/"* ]]; then echo 'dist'; else echo 'build'; fi)" >> $GITHUB_ENV
+          echo "UPLOAD_PATH=$S3_BUCKET_PATH" >> $GITHUB_ENV
           echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
       - name: New build Started
@@ -89,7 +91,7 @@ jobs:
       - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3
         with:
-            folder: 'build'
+            folder: ${{ env.FOLDER }}
             bucket: ${{ env.BUCKET }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
             dist-id: ${{ env.DIST_ID }}

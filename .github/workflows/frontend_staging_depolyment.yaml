@@ -96,7 +96,7 @@ jobs:
       - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3
         with:
-            folder: 'build'
+            folder: ${{ env.FOLDER }}
             bucket: ${{ env.BUCKET }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
             dist-id: ${{ env.DIST_ID }}
