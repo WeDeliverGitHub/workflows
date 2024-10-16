@@ -51,6 +51,7 @@ jobs:
       - name: Verify FOLDER value
         run: |
           echo "FOLDER is set to: '${{ env.FOLDER }}' ..."
+          echo "UPLOAD_PATH is set to: '${{ env.UPLOAD_PATH }}' ..."
 
       - name: New build Started
         uses: 8398a7/action-slack@v3
