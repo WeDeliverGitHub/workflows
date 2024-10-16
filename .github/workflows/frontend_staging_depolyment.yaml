@@ -48,6 +48,10 @@ jobs:
           echo "UPLOAD_PATH=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
           echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
+      - name: Verify FOLDER value
+        run: |
+          echo "FOLDER is set to: '${{ env.FOLDER }}' ..."
+
       - name: New build Started
         uses: 8398a7/action-slack@v3
         with:
