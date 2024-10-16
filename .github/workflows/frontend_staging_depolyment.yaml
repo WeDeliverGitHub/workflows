@@ -39,13 +39,15 @@ jobs:
     steps:
       - name: Set config variables
         id: configs
+        env:
+          S3_BUCKET_PATH: ${{ vars.S3_BUCKET_PATH }}
         run: |
           echo "ACCOUNT_ID=${{ secrets.AWS_STAGING_ACCOUNT_ID }}" >> $GITHUB_ENV
           echo "BUCKET=${{ secrets.S3_STAGING_BUCKET || secrets.S3_STAGING_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
           echo "DIST_ID=${{ secrets.CLOUDFRONT_STAGING_DISTRIBUTION_ID || secrets.CLOUDFRONT_STAGING_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=staging" >> $GITHUB_ENV
-          echo "FOLDER=$(if [[ ${vars.S3_BUCKET_PATH} == *"/apps/"* ]]; then echo 'dist'; else echo 'build'; fi)" >> $GITHUB_ENV
-          echo "UPLOAD_PATH=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
+          echo "FOLDER=$(if [[ $S3_BUCKET_PATH == *"/apps/"* ]]; then echo 'dist'; else echo 'build'; fi)" >> $GITHUB_ENV
+          echo "UPLOAD_PATH=$S3_BUCKET_PATH" >> $GITHUB_ENV
           echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
       - name: Verify FOLDER value
