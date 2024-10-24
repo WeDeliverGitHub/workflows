@@ -1,0 +1,105 @@
+name: Detect Financial Models Changes 🔎
+
+on:
+  workflow_call
+
+jobs:
+  detect_and_enforce_approval:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code in detached HEAD state
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Fetch full history for all branches
+
+    - name: Fetch the latest changes from remote
+      run: |
+        git fetch origin master  # Ensure we have the latest master branch
+
+    - name: Detect changes in financial models
+      id: check
+      run: |
+        # List of model classes to detect
+        MODELS=(
+          "CustomerTransactionEntry"
+          "WithdrawRequest"
+          "CustomerPaymentEntry"
+          "TopUpRequest"
+          "VehicleFinanceEntry"
+          "ThirdPartyWithdrawRequestsQueue"
+          "ThirdPartyTransactionQueue"
+          "PaymentInstallmentAction"
+          "ContractInstallment"
+          "BusinessTransactionEntry"
+          "BusinessPaymentEntry"
+        )
+
+        require_approval=false
+
+        # Loop through each model and check if it appears in the code diff
+        for model in "${MODELS[@]}"; do
+          if git diff origin/master...HEAD | grep -q "$model"; then
+            echo "$model changes detected."
+            require_approval=true
+          fi
+        done
+
+        # Set the output based on whether any changes were detected
+        if [ "$require_approval" = true ]; then
+          echo "require_approval=true" >> $GITHUB_ENV
+        else
+          echo "No relevant changes detected."
+          echo "require_approval=false" >> $GITHUB_ENV
+        fi
+
+    - name: Check for approvals and enforce rules
+      if: env.require_approval == 'true'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const statusContext = 'Require Finance Model Review';
+          const { data: reviews } = await github.rest.pulls.listReviews({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.payload.pull_request.number,
+          });
+
+          const approvals = reviews.filter(review => review.state === 'APPROVED');
+
+          if (approvals.length >= 2) {
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'success',
+              context: statusContext,
+              description: 'Finance Model/s changes approved.',
+            });
+            console.log('At least two approvals detected. Status updated to success.');
+          } else {
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'failure',
+              context: statusContext,
+              description: 'Finance Model/s changes detected. At least 2 approvals are required.',
+            });
+            console.log(`Only ${approvals.length} approvals. Waiting for more.`);
+          }
+
+    - name: Set default status if no relevant changes
+      if: env.require_approval == 'false'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          await github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: context.payload.pull_request.head.sha,
+            state: 'success',
+            context: 'Require Finance Model Review',
+            description: 'No model changes detected. Default branch rules apply.',
+          });
+          console.log('No relevant changes detected. Status set to success.');
