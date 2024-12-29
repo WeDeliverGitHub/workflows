@@ -95,7 +95,8 @@ jobs:
             bucket: ${{ env.BUCKET }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
             dist-id: ${{ env.DIST_ID }}
-            delete-removed: ${{ env.DELETE_REMOVED }}
+            # delete-removed: ${{ env.DELETE_REMOVED }}
+            delete-removed: false
             no-cache: true
             private: true
 
