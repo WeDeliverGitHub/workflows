@@ -1,7 +1,7 @@
 # This is a basic workflow to help you get started with Actions
 
 name: Develop 🚀
-  
+
 on:
   workflow_call:
     secrets:
@@ -11,6 +11,15 @@ on:
       SERVICE_NAME:
         description: Service name
         required: true
+      SENTRY_AUTH_TOKEN:
+        description: Sentry auth token for creating releases
+        required: false
+      SENTRY_ORG:
+        description: Sentry organization slug
+        required: false
+      SENTRY_PROJECT:
+        description: Sentry project slug
+        required: false
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -23,23 +32,22 @@ jobs:
       actions: read
 
     steps:
-
       - name: New build Started
         uses: 8398a7/action-slack@v3
         with:
-          text: 'New Backend Service Build Started 🚀'
-          status: 'cancelled'
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          text: "New Backend Service Build Started 🚀"
+          status: "cancelled"
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
           fields: repo,ref,message,author,eventName,workflow
-          icon_emoji: ':rocket:'
+          icon_emoji: ":rocket:"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: 'arn:aws:iam::${{ secrets.AWS_DEV_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}'
+          role-to-assume: "arn:aws:iam::${{ secrets.AWS_DEV_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}"
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Login to Amazon ECR
@@ -110,12 +118,33 @@ jobs:
         with:
           repository: ${{ secrets.K8S_DEFINITION_REPO }}
           branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/develop-values.yaml'
-          propertyPath: 'imageSource'
-          value: '${{ secrets.AWS_DEV_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ secrets.SERVICE_ECR_REPO_NAME }}:${{ github.sha }}'
+          valueFile: "${{ secrets.SERVICE_NAME }}/develop-values.yaml"
+          propertyPath: "imageSource"
+          value: "${{ secrets.AWS_DEV_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ secrets.SERVICE_ECR_REPO_NAME }}:${{ github.sha }}"
           createPR: false
-          message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository'
+          message: "${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository"
           token: ${{ steps.generate_token.outputs.token }}
+
+      # Sentry Release Creation
+      - name: Checkout repository for Sentry release
+        if: ${{ success() && (secrets.SENTRY_AUTH_TOKEN != '') }}
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # Fetch all history for proper release tracking
+
+      - name: Create Sentry release
+        if: ${{ success() && (secrets.SENTRY_AUTH_TOKEN != '') }}
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: develop
+          release: ${{ github.sha }}
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
 
   send-workflow-success:
     runs-on: ubuntu-latest
@@ -128,15 +157,14 @@ jobs:
       - name: Send notification when a build is done
         uses: 8398a7/action-slack@v3
         with:
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          status: 'success'
-          text: 'Backend Service Build Succeeded ✅'
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
+          status: "success"
+          text: "Backend Service Build Succeeded ✅"
           fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '✅'
+          icon_emoji: "✅"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
-
 
   send-workflow-failure:
     runs-on: ubuntu-latest
@@ -146,16 +174,15 @@ jobs:
     needs: [build-push-image, update-helm-tag]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     steps:
-
       - name: Send notification when a build is done
         uses: 8398a7/action-slack@v3
         with:
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          mention: 'here'
-          status: 'failure'
-          text: 'Backend Service Build Failed 🔴'
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
+          mention: "here"
+          status: "failure"
+          text: "Backend Service Build Failed 🔴"
           fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '🔴'
+          icon_emoji: "🔴"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
