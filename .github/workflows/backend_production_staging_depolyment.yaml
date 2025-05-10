@@ -9,16 +9,24 @@ on:
       SERVICE_NAME:
         description: Service name
         required: true
+      SENTRY_AUTH_TOKEN:
+        description: Sentry auth token for creating releases
+        required: false
+      SENTRY_ORG:
+        description: Sentry organization slug
+        required: false
+      SENTRY_PROJECT:
+        description: Sentry project slug
+        required: false
 
 env:
   ECR_REPOSITORY: ${{ secrets.SERVICE_ECR_REPO_NAME }}
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-
   validation:
     runs-on: ubuntu-latest
-    name: 'Detect pull request context'
+    name: "Detect pull request context"
 
     steps:
       - uses: hmarr/debug-action@v2
@@ -99,11 +107,11 @@ jobs:
 
   new-build-started:
     runs-on: ubuntu-latest
-    name: 'Build and Push Docker Image'
+    name: "Build and Push Docker Image"
     permissions:
-      id-token: write	
+      id-token: write
       contents: read
-      actions: read	
+      actions: read
     needs: [validation]
     if: ${{ needs.validation.outputs.deployment-context }}
     steps:
@@ -111,12 +119,12 @@ jobs:
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'staging' ) }}
         uses: 8398a7/action-slack@v3
         with:
-          text: 'New Backend Service Build Started 🚀'
-          status: 'cancelled'
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          text: "New Backend Service Build Started 🚀"
+          status: "cancelled"
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
           fields: repo,ref,message,author,eventName,workflow
-          icon_emoji: ':rocket:'
+          icon_emoji: ":rocket:"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_STAGING }}
 
@@ -124,15 +132,15 @@ jobs:
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'master' ) }}
         uses: 8398a7/action-slack@v3
         with:
-          text: 'New Backend Service Build Started 🚀'
-          status: 'cancelled'
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          text: "New Backend Service Build Started 🚀"
+          status: "cancelled"
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
           fields: repo,ref,message,author,eventName,workflow
-          icon_emoji: ':rocket:'
+          icon_emoji: ":rocket:"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT }}
-    
+
       - name: Checkout PR code
         if: ${{ contains(needs.validation.outputs.deployment-source, 'pr') }}
         uses: actions/checkout@v3
@@ -156,7 +164,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v1
         if: steps.aws_account.outputs.accountId
         with:
-          role-to-assume: 'arn:aws:iam::${{ steps.aws_account.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}'
+          role-to-assume: "arn:aws:iam::${{ steps.aws_account.outputs.accountId }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}"
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Login to Amazon ECR
@@ -174,10 +182,9 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-
   update-helm-tag:
     runs-on: ubuntu-latest
-    name: 'Update helm tag'
+    name: "Update helm tag"
     permissions:
       contents: read
       actions: read
@@ -204,18 +211,17 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-
       - name: Update Image Tag in the values HelmChart
         if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}
         uses: fjogeleit/yaml-update-action@master
         with:
           repository: ${{ secrets.K8S_DEFINITION_REPO }}
           branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/values.yaml'
-          propertyPath: 'image.tag'
+          valueFile: "${{ secrets.SERVICE_NAME }}/values.yaml"
+          propertyPath: "image.tag"
           value: ${{ env.IMAGE_TAG }}
           createPR: false
-          message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Tag to ${{ env.IMAGE_TAG }}'
+          message: "${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Tag to ${{ env.IMAGE_TAG }}"
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Update imageSource in the staging HelmChart
@@ -224,13 +230,12 @@ jobs:
         with:
           repository: ${{ secrets.K8S_DEFINITION_REPO }}
           branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
-          propertyPath: 'imageSource'
-          value: '${{ secrets.AWS_STAGING_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}'
+          valueFile: "${{ secrets.SERVICE_NAME }}/staging-values.yaml"
+          propertyPath: "imageSource"
+          value: "${{ secrets.AWS_STAGING_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
           createPR: false
-          message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository'
+          message: "${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository"
           token: ${{ steps.generate_token.outputs.token }}
-
 
       - name: Reset imageSource Tag from staging HelmChart
         if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
@@ -238,33 +243,67 @@ jobs:
         with:
           repository: ${{ secrets.K8S_DEFINITION_REPO }}
           branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
-          propertyPath: 'imageSource'
-          value: ''
+          valueFile: "${{ secrets.SERVICE_NAME }}/staging-values.yaml"
+          propertyPath: "imageSource"
+          value: ""
           createPR: false
-          message: '${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag'
+          message: "${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag"
           token: ${{ steps.generate_token.outputs.token }}
+
+      # Sentry Release Creation
+      - name: Checkout repository for Sentry release
+        if: ${{ success() && (secrets.SENTRY_AUTH_TOKEN != '') }}
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch all history for proper release tracking
+
+      - name: Create Sentry release for staging
+        if: ${{ success() && (secrets.SENTRY_AUTH_TOKEN != '') && contains(needs.validation.outputs.deployment-pushto, 'staging') }}
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: staging
+          release: ${{ env.IMAGE_TAG }}
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
+
+      - name: Create Sentry release for production
+        if: ${{ success() && (secrets.SENTRY_AUTH_TOKEN != '') && contains(needs.validation.outputs.deployment-pushto, 'master') }}
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          release: ${{ env.IMAGE_TAG }}
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
 
   send-workflow-success:
     runs-on: ubuntu-latest
-    name: 'Send success notification'
+    name: "Send success notification"
     permissions:
       contents: read
       actions: read
     if: ${{ ! contains(needs.*.result, 'failure') && ! contains(needs.*.result, 'cancelled') }}
     needs: [update-helm-tag, new-build-started]
     steps:
-
       - name: (Staging) Send notification when a build is done
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'staging' ) }}
         uses: 8398a7/action-slack@v3
         with:
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          status: 'success'
-          text: 'Backend Service Build Succeeded ✅'
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
+          status: "success"
+          text: "Backend Service Build Succeeded ✅"
           fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '✅'
+          icon_emoji: "✅"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_STAGING }}
 
@@ -272,35 +311,35 @@ jobs:
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'master' ) }}
         uses: 8398a7/action-slack@v3
         with:
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          status: 'success'
-          text: 'Backend Service Build Succeeded ✅'
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
+          status: "success"
+          text: "Backend Service Build Succeeded ✅"
           fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '✅'
+          icon_emoji: "✅"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT }}
 
   send-workflow-failure:
     runs-on: ubuntu-latest
-    name: 'Send fail notification'
+    name: "Send fail notification"
     permissions:
       contents: read
       actions: read
-    needs: [ validation, update-helm-tag, new-build-started ]
+    needs: [validation, update-helm-tag, new-build-started]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     steps:
       - name: (Staging) Send notification when a build is done
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'staging' ) }}
         uses: 8398a7/action-slack@v3
         with:
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          mention: 'here'
-          status: 'failure'
-          text: 'Backend Service Build Failed 🔴'
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
+          mention: "here"
+          status: "failure"
+          text: "Backend Service Build Failed 🔴"
           fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '🔴'
+          icon_emoji: "🔴"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_STAGING }}
 
@@ -308,12 +347,12 @@ jobs:
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'master' ) }}
         uses: 8398a7/action-slack@v3
         with:
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          mention: 'here'
-          status: 'failure'
-          text: 'Backend Service Build Failed 🔴'
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
+          mention: "here"
+          status: "failure"
+          text: "Backend Service Build Failed 🔴"
           fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '🔴'
+          icon_emoji: "🔴"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT }}
