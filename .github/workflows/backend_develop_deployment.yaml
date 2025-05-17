@@ -112,22 +112,23 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      - name: Update Image Tag & SENTRY_RELEASE
+      - name: Update imageSource & SENTRY_RELEASE
+        uses: mikefarah/yq@master
         env:
           NEW_IMAGE: ${{ secrets.AWS_DEV_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ secrets.SERVICE_ECR_REPO_NAME }}:${{ github.sha }}
-          GIT_SHA: ${{ github.sha }}
+          GIT_SHA:   ${{ github.sha }}
+        with:
+          # run both yq edits in one container invocation
+          cmd: |
+            yq -i '.imageSource = strenv(NEW_IMAGE)' '${{ secrets.SERVICE_NAME }}/develop-values.yaml'
+            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/develop-values.yaml'
+  
+      - name: Commit & push updated values
         run: |
-          # install yq
-          sudo apt-get update && sudo apt-get install -y yq
-          FILE="${{ secrets.SERVICE_NAME }}/develop-values.yaml"
-          # bump the Docker image tag
-          yq eval -i '.imageSource = strenv(NEW_IMAGE)' "$FILE"
-          # bump the SENTRY_RELEASE under environmentVariables
-          yq eval -i '(.environmentVariables[] | select(.name=="SENTRY_RELEASE")).value = strenv(GIT_SHA)' "$FILE"
-          # commit & push both changes at once
-          git add "$FILE"
-          git commit -m "${{ github.actor }}: bump imageSource and SENTRY_RELEASE to $GIT_SHA"
+          git add "${{ secrets.SERVICE_NAME }}/develop-values.yaml"
+          git commit -m "${{ github.actor }}: bump imageSource and SENTRY_RELEASE to ${{ github.sha }}"
           git push
+
       - name: Create Sentry release
         uses: getsentry/action-release@v3
         env:
