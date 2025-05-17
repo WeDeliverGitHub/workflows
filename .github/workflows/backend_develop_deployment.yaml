@@ -129,7 +129,6 @@ jobs:
           git commit -m "${{ github.actor }}: bump imageSource and SENTRY_RELEASE to $GIT_SHA"
           git push
       - name: Create Sentry release
-        if: success() && secrets.SENTRY_AUTH_TOKEN != ''
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
