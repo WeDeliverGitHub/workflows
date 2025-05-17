@@ -106,6 +106,7 @@ jobs:
         with:
           repository: ${{ secrets.K8S_DEFINITION_REPO }}
           token: ${{ steps.generate_token.outputs.token }}
+          ref: 'add-sentry-config-thrivve-service'
 
       - name: Configure Git
         run: |
