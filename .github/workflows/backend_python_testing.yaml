@@ -95,6 +95,7 @@ jobs:
           SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           SQLALCHEMY_TRACK_MODIFICATIONS: 'False'
+          SENTRY_ENABLED: 'False'
 
   send-test-failure:
     runs-on: ubuntu-latest
