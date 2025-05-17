@@ -84,7 +84,7 @@ jobs:
   update-helm-tag:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # need write to push back our commit
       actions: read
     needs: build-push-image
     if: success()
@@ -99,48 +99,46 @@ jobs:
           repository: ${{ secrets.K8S_DEFINITION_REPO }}
 
       - name: Checkout Target Repository (k8s_definitions)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: ${{ secrets.K8S_DEFINITION_REPO }}
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Configure Git
         run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-      - name: Extract branch name
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch
+          git config user.name  "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Update Image Tag in the develop HelmChart values
-        uses: fjogeleit/yaml-update-action@master
-        with:
-          repository: ${{ secrets.K8S_DEFINITION_REPO }}
-          branch: master
-          valueFile: "${{ secrets.SERVICE_NAME }}/develop-values.yaml"
-          propertyPath: "imageSource"
-          value: "${{ secrets.AWS_DEV_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ secrets.SERVICE_ECR_REPO_NAME }}:${{ github.sha }}"
-          createPR: false
-          message: "${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository"
-          token: ${{ steps.generate_token.outputs.token }}
+      - name: Update Image Tag & SENTRY_RELEASE
+        env:
+          NEW_IMAGE: ${{ secrets.AWS_DEV_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ secrets.SERVICE_ECR_REPO_NAME }}:${{ github.sha }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          # install yq
+          sudo apt-get update && sudo apt-get install -y yq
 
-      # Sentry Release Creation
-      - name: Checkout repository for Sentry release
-        if: ${{ success() && (secrets.SENTRY_AUTH_TOKEN != '') }}
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0 # Fetch all history for proper release tracking
+          FILE="${{ secrets.SERVICE_NAME }}/develop-values.yaml"
+
+          # bump the Docker image tag
+          yq eval -i '.imageSource = strenv(NEW_IMAGE)' "$FILE"
+
+          # bump the SENTRY_RELEASE under environmentVariables
+          yq eval -i '(.environmentVariables[] | select(.name=="SENTRY_RELEASE")).value = strenv(GIT_SHA)' "$FILE"
+
+          # commit & push both changes at once
+          git add "$FILE"
+          git commit -m "${{ github.actor }}: bump imageSource and SENTRY_RELEASE to $GIT_SHA"
+          git push
 
       - name: Create Sentry release
-        if: ${{ success() && (secrets.SENTRY_AUTH_TOKEN != '') }}
+        if: success() && secrets.SENTRY_AUTH_TOKEN != ''
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         with:
-          environment: development
+          environment: develop
           release: ${{ github.sha }}
           set_commits: auto
           ignore_missing: true
