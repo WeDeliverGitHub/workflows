@@ -275,12 +275,12 @@ jobs:
         with:
           cmd: |
             yq -i '.image.tag = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/values.yaml'
-            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/values.yaml'
+            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/master-values.yaml'
 
       - name: Commit & push updated production values
         if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}
         run: |
-          git add "${{ secrets.SERVICE_NAME }}/values.yaml"
+          git add "${{ secrets.SERVICE_NAME }}/values.yaml" "${{ secrets.SERVICE_NAME }}/master-values.yaml"
           git commit -m "${{ github.actor }}: bump image.tag and SENTRY_RELEASE to ${{ env.IMAGE_TAG }}"
           git push
 
@@ -322,7 +322,7 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_PROJECT: prod-backend-thrivve
         with:
           environment: production
           release: ${{ env.IMAGE_TAG }}
@@ -336,7 +336,7 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_PROJECT: stage-backend-thrivve
         with:
           environment: staging
           release: ${{ env.IMAGE_TAG }}
