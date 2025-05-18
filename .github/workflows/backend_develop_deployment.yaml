@@ -1,7 +1,7 @@
 # This is a basic workflow to help you get started with Actions
 
 name: Develop 🚀
-  
+
 on:
   workflow_call:
     secrets:
@@ -11,6 +11,15 @@ on:
       SERVICE_NAME:
         description: Service name
         required: true
+      SENTRY_AUTH_TOKEN:
+        description: Sentry auth token for creating releases
+        required: false
+      SENTRY_ORG:
+        description: Sentry organization slug
+        required: false
+      SENTRY_PROJECT:
+        description: Sentry project slug
+        required: false
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -19,27 +28,26 @@ jobs:
     # These permissions are needed to interact with GitHub's OIDC Token endpoint.
     permissions:
       id-token: write
-      contents: read
+      contents: write
       actions: read
 
     steps:
-
       - name: New build Started
         uses: 8398a7/action-slack@v3
         with:
-          text: 'New Backend Service Build Started 🚀'
-          status: 'cancelled'
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          text: "New Backend Service Build Started 🚀"
+          status: "cancelled"
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
           fields: repo,ref,message,author,eventName,workflow
-          icon_emoji: ':rocket:'
+          icon_emoji: ":rocket:"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: 'arn:aws:iam::${{ secrets.AWS_DEV_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}'
+          role-to-assume: "arn:aws:iam::${{ secrets.AWS_DEV_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_PUSH_IMG }}"
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Login to Amazon ECR
@@ -54,7 +62,7 @@ jobs:
         id: buildx
 
       - name: Cache Docker layers
-        id: cache-venv  # name for referring later
+        id: cache-venv # name for referring later
         uses: actions/cache@v3
         with:
           path: /tmp/.buildx-cache
@@ -103,35 +111,48 @@ jobs:
         run: |
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-      - name: Extract branch name
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch
 
-      - name: Update Image Tag in the develop HelmChart values
-        uses: fjogeleit/yaml-update-action@master
+      - name: Update imageSource & SENTRY_RELEASE
+        uses: mikefarah/yq@master
+        env:
+          NEW_IMAGE: ${{ secrets.AWS_DEV_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ secrets.SERVICE_ECR_REPO_NAME }}:${{ github.sha }}
+          GIT_SHA:   ${{ github.sha }}
         with:
-          repository: ${{ secrets.K8S_DEFINITION_REPO }}
-          branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/develop-values.yaml'
-          propertyPath: 'imageSource'
-          value: '${{ secrets.AWS_DEV_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ secrets.SERVICE_ECR_REPO_NAME }}:${{ github.sha }}'
-          createPR: false
-          message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository'
-          token: ${{ steps.generate_token.outputs.token }}
+          # run both yq edits in one container invocation
+          cmd: |
+            yq -i '.imageSource = strenv(NEW_IMAGE)' '${{ secrets.SERVICE_NAME }}/develop-values.yaml'
+            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/develop-values.yaml'
+  
+      - name: Commit & push updated values
+        run: |
+          git add "${{ secrets.SERVICE_NAME }}/develop-values.yaml"
+          git commit -m "${{ github.actor }}: bump imageSource and SENTRY_RELEASE to ${{ github.sha }}"
+          git push
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: development
+          release: ${{ github.sha }}
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
 
       - name: Send notification when a build is done
         uses: 8398a7/action-slack@v3
         with:
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          status: 'success'
-          text: 'Backend Service Build Succeeded ✅'
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
+          status: "success"
+          text: "Backend Service Build Succeeded ✅"
           fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '✅'
+          icon_emoji: "✅"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
-
 
   send-workflow-failure:
     runs-on: ubuntu-latest
@@ -141,16 +162,15 @@ jobs:
     needs: [build-push-image]
     if: ${{ always() && contains(needs.*.result, 'failure') }}
     steps:
-
       - name: Send notification when a build is done
         uses: 8398a7/action-slack@v3
         with:
-          author_name: 'Service Builds'
-          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
-          mention: 'here'
-          status: 'failure'
-          text: 'Backend Service Build Failed 🔴'
+          author_name: "Service Builds"
+          icon_url: "https://avatars.githubusercontent.com/u/71592178?s=48&v=4"
+          mention: "here"
+          status: "failure"
+          text: "Backend Service Build Failed 🔴"
           fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '🔴'
+          icon_emoji: "🔴"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
