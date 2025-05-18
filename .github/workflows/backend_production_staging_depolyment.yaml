@@ -302,20 +302,6 @@ jobs:
           git commit -m "${{ github.actor }}: bump imageSource and SENTRY_RELEASE to ${{ env.IMAGE_TAG }}"
           git push
 
-      - name: Reset SENTRY_RELEASE in staging HelmChart
-        if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
-        uses: mikefarah/yq@master
-        with:
-          cmd: |
-            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = ""' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
-
-      - name: Commit & push reset SENTRY_RELEASE
-        if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
-        run: |
-          git add "${{ secrets.SERVICE_NAME }}/staging-values.yaml"
-          git commit -m "${{ github.actor }}: Reset ${{ secrets.SERVICE_NAME }} SENTRY_RELEASE"
-          git push
-
       - name: Create Sentry release for production
         if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') && secrets.SENTRY_AUTH_TOKEN != '' }}
         uses: getsentry/action-release@v3
