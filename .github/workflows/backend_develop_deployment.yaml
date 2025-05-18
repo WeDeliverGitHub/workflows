@@ -137,7 +137,7 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         with:
-          environment: develop
+          environment: development
           release: ${{ github.sha }}
           set_commits: auto
           ignore_missing: true
