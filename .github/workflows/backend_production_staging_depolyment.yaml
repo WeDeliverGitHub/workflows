@@ -226,46 +226,18 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-
-      - name: Update Image Tag in the values HelmChart
-        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}
-        uses: fjogeleit/yaml-update-action@master
-        with:
-          repository: ${{ secrets.K8S_DEFINITION_REPO }}
-          branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/values.yaml'
-          propertyPath: 'image.tag'
-          value: ${{ env.IMAGE_TAG }}
-          createPR: false
-          message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Tag to ${{ env.IMAGE_TAG }}'
-          token: ${{ steps.generate_token.outputs.token }}
-
-      - name: Update imageSource in the staging HelmChart
-        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'staging') }}
-        uses: fjogeleit/yaml-update-action@master
-        with:
-          repository: ${{ secrets.K8S_DEFINITION_REPO }}
-          branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
-          propertyPath: 'imageSource'
-          value: '${{ secrets.AWS_STAGING_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}'
-          createPR: false
-          message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository'
-          token: ${{ steps.generate_token.outputs.token }}
-
-
       - name: Reset imageSource Tag from staging HelmChart
         if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
-        uses: fjogeleit/yaml-update-action@master
+        uses: mikefarah/yq@master
         with:
-          repository: ${{ secrets.K8S_DEFINITION_REPO }}
-          branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
-          propertyPath: 'imageSource'
-          value: ''
-          createPR: false
-          message: '${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag'
-          token: ${{ steps.generate_token.outputs.token }}
+          cmd: yq -i '.imageSource = ""' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
+
+      - name: Commit & push reset staging values
+        if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
+        run: |
+          git add "${{ secrets.SERVICE_NAME }}/staging-values.yaml"
+          git commit -m "${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag"
+          git push
 
       - name: Update Image Tag & SENTRY_RELEASE in production HelmChart
         if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}
