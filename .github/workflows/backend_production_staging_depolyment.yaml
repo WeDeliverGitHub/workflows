@@ -226,17 +226,20 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      - name: Reset imageSource Tag from staging HelmChart
+      - name: Reset imageSource Tag and SENTRY_RELEASE from staging HelmChart
         if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
         uses: mikefarah/yq@master
         with:
-          cmd: yq -i '.imageSource = ""' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
+          cmd: |
+            yq -i '.imageSource = ""' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
+            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = ""' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
+      
 
       - name: Commit & push reset staging values
         if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
         run: |
           git add "${{ secrets.SERVICE_NAME }}/staging-values.yaml"
-          git commit -m "${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag"
+          git commit -m "${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag and SENTRY_RELEASE"
           git push
 
       - name: Update Image Tag & SENTRY_RELEASE in production HelmChart
@@ -247,12 +250,12 @@ jobs:
         with:
           cmd: |
             yq -i '.image.tag = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/values.yaml'
-            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/master-values.yaml'
+            yq -i '( .commonEnvironmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/values.yaml'
 
       - name: Commit & push updated production values
         if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}
         run: |
-          git add "${{ secrets.SERVICE_NAME }}/values.yaml" "${{ secrets.SERVICE_NAME }}/master-values.yaml"
+          git add "${{ secrets.SERVICE_NAME }}/values.yaml"
           git commit -m "${{ github.actor }}: bump image.tag and SENTRY_RELEASE to ${{ env.IMAGE_TAG }}"
           git push
 
