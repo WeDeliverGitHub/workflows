@@ -277,8 +277,20 @@ jobs:
           git commit -m "${{ github.actor }}: bump imageSource and SENTRY_RELEASE to ${{ env.IMAGE_TAG }}"
           git push
 
+      # Set a flag for whether to run Sentry release for production
+      - name: Check Sentry secret for production
+        id: sentry_check_prod
+        run: |
+          if [[ "${{ secrets.SENTRY_AUTH_TOKEN }}" != "" && "${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}" == "true" ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
       - name: Create Sentry release for production
-        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') && secrets.SENTRY_AUTH_TOKEN != '' }}
+        if: steps.sentry_check_prod.outputs.should_run == 'true'
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -291,8 +303,20 @@ jobs:
           ignore_missing: true
           ignore_empty: true
 
+      # Set a flag for whether to run Sentry release for staging
+      - name: Check Sentry secret for staging
+        id: sentry_check_stage
+        run: |
+          if [[ "${{ secrets.SENTRY_AUTH_TOKEN }}" != "" && "${{ contains(needs.validation.outputs.deployment-pushto, 'staging') }}" == "true" ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
       - name: Create Sentry release for staging
-        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'staging') && secrets.SENTRY_AUTH_TOKEN != '' }}
+        if: steps.sentry_check_stage.outputs.should_run == 'true'
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -304,6 +328,7 @@ jobs:
           set_commits: auto
           ignore_missing: true
           ignore_empty: true
+
 
       - name: (Staging) Send notification when a build is done
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'staging' ) }}
