@@ -9,6 +9,15 @@ on:
       SERVICE_NAME:
         description: Service name
         required: true
+      SENTRY_AUTH_TOKEN:
+        description: Sentry auth token for creating releases
+        required: false
+      SENTRY_ORG:
+        description: Sentry organization slug
+        required: false
+      SENTRY_PROJECT:
+        description: Sentry project slug
+        required: false
 
 env:
   ECR_REPOSITORY: ${{ secrets.SERVICE_ECR_REPO_NAME }}
@@ -101,9 +110,9 @@ jobs:
     runs-on: ubuntu-latest
     name: 'Build and Push Docker Image'
     permissions:
-      id-token: write	
+      id-token: write
       contents: read
-      actions: read	
+      actions: read
     needs: [validation]
     if: ${{ needs.validation.outputs.deployment-context }}
     steps:
@@ -132,7 +141,7 @@ jobs:
           icon_emoji: ':rocket:'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT }}
-    
+
       - name: Checkout PR code
         if: ${{ contains(needs.validation.outputs.deployment-source, 'pr') }}
         uses: actions/checkout@v3
@@ -163,7 +172,7 @@ jobs:
         id: login-ecr
         if: steps.aws_account.outputs.accountId
         uses: aws-actions/amazon-ecr-login@v1
-      
+
       - name: Set up Docker Buildkit
         uses: docker/setup-buildx-action@v1
         id: buildx
@@ -217,46 +226,84 @@ jobs:
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-
-      - name: Update Image Tag in the values HelmChart
-        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}
-        uses: fjogeleit/yaml-update-action@master
-        with:
-          repository: ${{ secrets.K8S_DEFINITION_REPO }}
-          branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/values.yaml'
-          propertyPath: 'image.tag'
-          value: ${{ env.IMAGE_TAG }}
-          createPR: false
-          message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Tag to ${{ env.IMAGE_TAG }}'
-          token: ${{ steps.generate_token.outputs.token }}
-
-      - name: Update imageSource in the staging HelmChart
-        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'staging') }}
-        uses: fjogeleit/yaml-update-action@master
-        with:
-          repository: ${{ secrets.K8S_DEFINITION_REPO }}
-          branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
-          propertyPath: 'imageSource'
-          value: '${{ secrets.AWS_STAGING_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}'
-          createPR: false
-          message: '${{ github.actor }} Updated ${{ secrets.SERVICE_NAME }} Image Repository'
-          token: ${{ steps.generate_token.outputs.token }}
-
-
-      - name: Reset imageSource Tag from staging HelmChart
+      - name: Reset imageSource Tag and SENTRY_RELEASE from staging HelmChart
         if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
-        uses: fjogeleit/yaml-update-action@master
+        uses: mikefarah/yq@master
         with:
-          repository: ${{ secrets.K8S_DEFINITION_REPO }}
-          branch: master
-          valueFile: '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
-          propertyPath: 'imageSource'
-          value: ''
-          createPR: false
-          message: '${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag'
-          token: ${{ steps.generate_token.outputs.token }}
+          cmd: |
+            yq -i '.imageSource = ""' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
+            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = ""' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
+      
+
+      - name: Commit & push reset staging values
+        if: ${{ contains(needs.validation.outputs.deployment-reset, 'staging') }}
+        run: |
+          git add "${{ secrets.SERVICE_NAME }}/staging-values.yaml"
+          git commit -m "${{ github.actor }} Reset ${{ secrets.SERVICE_NAME }} Image Tag and SENTRY_RELEASE"
+          git push
+
+      - name: Update Image Tag & SENTRY_RELEASE in production HelmChart
+        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}
+        uses: mikefarah/yq@master
+        env:
+          GIT_SHA: ${{ env.IMAGE_TAG }}
+        with:
+          cmd: |
+            yq -i '.image.tag = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/values.yaml'
+            yq -i '( .commonEnvironmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/values.yaml'
+
+      - name: Commit & push updated production values
+        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') }}
+        run: |
+          git add "${{ secrets.SERVICE_NAME }}/values.yaml"
+          git commit -m "${{ github.actor }}: bump image.tag and SENTRY_RELEASE to ${{ env.IMAGE_TAG }}"
+          git push
+
+      - name: Update imageSource & SENTRY_RELEASE in staging HelmChart
+        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'staging') }}
+        uses: mikefarah/yq@master
+        env:
+          NEW_IMAGE: ${{ secrets.AWS_STAGING_ACCOUNT_ID }}.dkr.ecr.eu-west-1.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          GIT_SHA: ${{ env.IMAGE_TAG }}
+        with:
+          cmd: |
+            yq -i '.imageSource = strenv(NEW_IMAGE)' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
+            yq -i '( .environmentVariables[] | select(.name == "SENTRY_RELEASE") ).value = strenv(GIT_SHA)' '${{ secrets.SERVICE_NAME }}/staging-values.yaml'
+
+      - name: Commit & push updated staging values
+        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'staging') }}
+        run: |
+          git add "${{ secrets.SERVICE_NAME }}/staging-values.yaml"
+          git commit -m "${{ github.actor }}: bump imageSource and SENTRY_RELEASE to ${{ env.IMAGE_TAG }}"
+          git push
+
+      - name: Create Sentry release for production
+        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'master') && secrets.SENTRY_AUTH_TOKEN != '' }}
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: prod-backend-thrivve
+        with:
+          environment: production
+          release: ${{ env.IMAGE_TAG }}
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
+
+      - name: Create Sentry release for staging
+        if: ${{ contains(needs.validation.outputs.deployment-pushto, 'staging') && secrets.SENTRY_AUTH_TOKEN != '' }}
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: stage-backend-thrivve
+        with:
+          environment: staging
+          release: ${{ env.IMAGE_TAG }}
+          set_commits: auto
+          ignore_missing: true
+          ignore_empty: true
 
       - name: (Staging) Send notification when a build is done
         if: ${{ contains(needs.validation.outputs.deployment-notify, 'staging' ) }}
