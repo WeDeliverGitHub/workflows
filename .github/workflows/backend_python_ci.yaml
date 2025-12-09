@@ -6,15 +6,18 @@ on:
 jobs:
   python_ci:
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.8]
+        python-version: ['3.10']
 
     steps:
+      # Checkout source
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
+      # Detect modified Python files
       - name: Get changed files
         uses: dorny/paths-filter@v2
         id: filter
@@ -23,25 +26,30 @@ jobs:
           filters: |
             py_modified:
               - added|modified: "./**/*.py"
+
+      # Install Python (modern action)
       - name: Set up Python ${{ matrix.python-version }}
         if: ${{ steps.filter.outputs.py_modified == 'true' }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Install dev dependencies
       - name: Install dependencies
         if: ${{ steps.filter.outputs.py_modified == 'true' }}
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_dev.txt
+
+      # Run Black (modern & official)
       - name: Black
         if: ${{ steps.filter.outputs.py_modified == 'true' }}
-        uses: psf/black@22.3.0
+        uses: psf/black@stable
         with:
           options: "--check --diff"
           src: ${{ steps.filter.outputs.py_modified_files }}
 
-
+      # Flake8 lint
       - name: Lint with flake8
         if: ${{ steps.filter.outputs.py_modified == 'true' }}
         run: |
