@@ -10,25 +10,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10']
+        python-version: [ "3.10" ]  
 
     steps:
-      # Checkout source
+      # Clone code
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Detect modified Python files
+      # Detect changed Python files
       - name: Get changed files
-        uses: dorny/paths-filter@v2
         id: filter
+        uses: dorny/paths-filter@v3
         with:
           list-files: shell
           filters: |
             py_modified:
               - added|modified: "./**/*.py"
 
-      # Install Python (modern action)
-      - name: Set up Python ${{ matrix.python-version }}
+      # Install Python
+      - name: Setup Python
         if: ${{ steps.filter.outputs.py_modified == 'true' }}
         uses: actions/setup-python@v5
         with:
@@ -41,16 +41,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_dev.txt
 
-      # Run Black (modern & official)
-      - name: Black
+      # Run Black (latest stable)
+      - name: Black Format Check
         if: ${{ steps.filter.outputs.py_modified == 'true' }}
         uses: psf/black@stable
         with:
           options: "--check --diff"
           src: ${{ steps.filter.outputs.py_modified_files }}
 
-      # Flake8 lint
-      - name: Lint with flake8
+      # Run flake8
+      - name: Flake8 Lint
         if: ${{ steps.filter.outputs.py_modified == 'true' }}
         run: |
           flake8 ${{ steps.filter.outputs.py_modified_files }}
