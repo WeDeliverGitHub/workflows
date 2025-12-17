@@ -1,4 +1,3 @@
-upgrade node here to the lastest one:
 name: Develop 🚀
 
 on:
@@ -77,11 +76,9 @@ jobs:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v1
         with:
-          node-version: '20'
-          cache: 'npm'
-
+          node-version: 16.x
 
       - name: Install dependencies
         run: |
