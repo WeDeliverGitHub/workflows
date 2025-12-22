@@ -61,7 +61,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
 
       - name: Checkout PR code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
