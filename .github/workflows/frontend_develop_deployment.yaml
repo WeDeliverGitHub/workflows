@@ -16,9 +16,10 @@ jobs:
             echo "S3_BUCKET_PATH repo variable is not set. Exiting workflow."
             exit 1
           fi
+
       - name: Check for merge action
         run: |
-          if  [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]] ; then
+          if [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]]; then
             echo "IS_MERGED=true" >> $GITHUB_ENV
           else
             echo "IS_MERGED=false" >> $GITHUB_ENV
@@ -28,15 +29,19 @@ jobs:
     needs: detect-merge
     runs-on: ubuntu-latest
     if: needs.detect-merge.outputs.is_merged == 'true'
-    name: "Build and Deploy"
+    name: Build & Deploy
     permissions:
       id-token: write
       contents: read
       actions: read
+
     steps:
-      - name: Set config variables
-        env:
-          S3_BUCKET_PATH: ${{ vars.S3_BUCKET_PATH }}
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set Environment Variables
         run: |
           echo "ACCOUNT_ID=${{ secrets.AWS_DEV_ACCOUNT_ID }}" >> $GITHUB_ENV
           echo "BUCKET=${{ secrets.S3_DEV_BUCKET || secrets.S3_DEV_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
@@ -44,48 +49,55 @@ jobs:
           echo "DEPLOY_BRANCH_NAME=develop" >> $GITHUB_ENV
           echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
-      - name: Slack Start Notify
+      - name: Slack — Build Started
         uses: 8398a7/action-slack@v3
         with:
-          text: "New Build Started 🚀"
+          text: "New Build Started for ${{ github.event.repository.name }} 🚀"
           status: cancelled
-          icon_emoji: ':rocket:'
+          author_name: "Frontend Deploy"
+          icon_emoji: ":rocket:"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
 
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      - name: Configure Git Auth
+        run: |
+          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
 
-      - name: AWS Auth
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           role-to-assume: "arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}"
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
 
-      - name: Cleanup Old Build
+      - name: Cleanup Old Artifacts
+        working-directory: .
         run: |
           npm cache clean --force
           rm -rf node_modules dist
 
-      - name: Copy env
-        run: npm run copy:env:${{ env.DEPLOY_BRANCH_NAME }}
-
-      - name: Install dependencies
+      - name: Install Dependencies
+        working-directory: .
         run: npm ci --no-audit --no-fund
 
-      - name: Build Astro
+      - name: Copy Env for Build
+        working-directory: .
+        run: npm run copy:env:${{ env.DEPLOY_BRANCH_NAME }}
+
+      - name: Build Astro Website
+        working-directory: .
         run: npx astro build
 
       - name: Debug Dist Output
+        working-directory: .
         run: ls -la dist
 
-      - name: Deploy to S3
+      - name: Deploy to S3 Bucket
         uses: reggionick/s3-deploy@v3
         with:
           folder: dist
@@ -95,3 +107,32 @@ jobs:
           delete-removed: ${{ env.DELETE_REMOVED }}
           no-cache: true
           private: true
+
+  send-success:
+    needs: [build-and-deploy, detect-merge]
+    runs-on: ubuntu-latest
+    if: needs.detect-merge.outputs.is_merged == 'true' && success()
+    steps:
+      - name: Slack Success
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: "${{ github.event.repository.name }} 🚀 Deployment Success ✅"
+          icon_emoji: "✅"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
+
+  send-failure:
+    needs: [build-and-deploy, detect-merge]
+    runs-on: ubuntu-latest
+    if: needs.detect-merge.outputs.is_merged == 'true' && failure()
+    steps:
+      - name: Slack Failure
+        uses: 8398a7/action-slack@v3
+        with:
+          mention: "here"
+          status: failure
+          text: "${{ github.event.repository.name }} 🔴 Deployment Failed"
+          icon_emoji: "🔴"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
