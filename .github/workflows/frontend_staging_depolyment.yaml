@@ -82,10 +82,11 @@ jobs:
           role-to-assume: 'arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v1
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 16.x
+          node-version: 20
+          cache: "npm"
 
       - name: Install dependencies
         run: |
