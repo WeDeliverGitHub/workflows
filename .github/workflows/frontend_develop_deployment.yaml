@@ -86,11 +86,9 @@ jobs:
           rm -rf node_modules dist package-lock.json
 
       - name: Install dependencies
-        working-directory: ./thrivve_website
         run: npm install --no-audit --no-fund
       
       - name: Prepare env + Build Astro site
-        working-directory: ./thrivve_website
         run: |
           npm run copy:env:${{ env.DEPLOY_BRANCH_NAME }}
           npx astro build
@@ -99,7 +97,7 @@ jobs:
       - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3
         with:
-            folder: thrivve_website/dist
+            folder: dist
             bucket: ${{ env.BUCKET }}
             bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
             dist-id: ${{ env.DIST_ID }}
