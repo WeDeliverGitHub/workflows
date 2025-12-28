@@ -22,7 +22,6 @@ jobs:
           if  [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]] ; then
             echo "IS_MERGED=true" >> $GITHUB_ENV
           else
-            echo "No 'master' merge detected. Skipping the workflow."
             echo "IS_MERGED=false" >> $GITHUB_ENV
           fi
       
@@ -46,7 +45,7 @@ jobs:
           echo "BUCKET=${{ secrets.S3_DEV_BUCKET || secrets.S3_DEV_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
           echo "DIST_ID=${{ secrets.CLOUDFRONT_DEV_DISTRIBUTION_ID || secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=develop" >> $GITHUB_ENV
-          echo "FOLDER=$(if [[ $S3_BUCKET_PATH == *"/apps/"* ]]; then echo 'dist'; else echo 'build'; fi)" >> $GITHUB_ENV
+          echo "FOLDER=dist" >> $GITHUB_ENV
           echo "UPLOAD_PATH=$S3_BUCKET_PATH" >> $GITHUB_ENV
           echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
@@ -65,7 +64,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Reconfigure git to use HTTP authentication
+      - name: Configure Git auth
         run: |
           git config --global url."https://github.com/".insteadOf ssh://git@github.com/
 
@@ -81,14 +80,18 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-
-      - name: Install dependencies
+      - name: Clear npm cache + old node_modules
         run: |
-          npm ci
+          npm cache clean --force
+          rm -rf node_modules dist package-lock.json
 
-      - name: Build the project
+      - name: Install dependencies fresh
+        run: npm ci --no-audit --no-fund
+
+      - name: Prepare env + Build Astro site
         run: |
-          npm run deploy --branch_name=${{ env.DEPLOY_BRANCH_NAME }}
+          npm run copy:env:${{ env.DEPLOY_BRANCH_NAME }}
+          npm run build
 
       - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3
@@ -100,44 +103,3 @@ jobs:
             delete-removed: ${{ env.DELETE_REMOVED }}
             no-cache: true
             private: true
-
-  send-workflow-success:
-    needs: [build-and-deploy, detect-merge]
-    runs-on: ubuntu-latest
-    if: needs.detect-merge.outputs.is_merged == 'true' && success()
-    name: 'Send success notification'
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - name: Send success notification
-        uses: 8398a7/action-slack@v3
-        with:
-          author_name: 'Frontend Build and Deploy'
-          status: 'success'
-          text: '${{ github.event.repository.name }} Frontend App Build and Deploy Succeeded ✅'
-          fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '✅'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
-
-  send-workflow-failure:
-    runs-on: ubuntu-latest
-    name: 'Send fail notification'
-    permissions:
-      contents: read
-      actions: read
-    needs: [build-and-deploy, detect-merge]
-    if: needs.detect-merge.outputs.is_merged == 'true' && failure()
-    steps:
-      - name: Send fail notification
-        uses: 8398a7/action-slack@v3
-        with:
-          author_name: 'Frontend Build and Deploy'
-          mention: 'here'
-          status: 'failure'
-          text: '${{ github.event.repository.name }} Frontend App Build or Deploy Failed 🔴'
-          fields: repo,message,commit,author,eventName,ref,workflow,job
-          icon_emoji: '🔴'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
