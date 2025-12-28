@@ -1,135 +1,149 @@
-name: Develop 🚀
+name: Develop 🚀 (free-zone)
 
 on:
-  workflow_call:
+  pull_request:
+    branches: [ free-zone ]
+    types: [closed]
+    paths:
+      - 'env-configs/**'
+      - 'public/**'
+      - 'src/**'
+      - 'package*.json'
 
 jobs:
   detect-merge:
     runs-on: ubuntu-latest
     outputs:
-      is_merged: ${{ env.IS_MERGED }}
+      is_merged: ${{ steps.set.outputs.is_merged }}
     steps:
-      - name: Check if 'S3_BUCKET_PATH' repo variable is set
-        run: |
-          if [ -z "${{ vars.S3_BUCKET_PATH }}" ]; then
-            echo "S3_BUCKET_PATH repo variable is not set. Exiting workflow."
-            exit 1
-          fi
-
-      - name: Detect merge
+      - name: Determine if merge
+        id: set
         run: |
           if [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]]; then
-            echo "IS_MERGED=true" >> $GITHUB_ENV
+            echo "is_merged=true" >> $GITHUB_OUTPUT
           else
-            echo "IS_MERGED=false" >> $GITHUB_ENV
+            echo "is_merged=false" >> $GITHUB_OUTPUT
           fi
 
   build-and-deploy:
     needs: detect-merge
-    runs-on: ubuntu-latest
     if: needs.detect-merge.outputs.is_merged == 'true'
-    name: "Build & Deploy Astro"
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
       actions: read
 
     steps:
-      # -----------------------------
-      # 1️⃣ Checkout
-      # -----------------------------
-      - name: Checkout Code
+      # -----------------------------------------------------
+      # Checkout PR Code (Important!)
+      # -----------------------------------------------------
+      - name: Checkout PR HEAD Branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
 
-      # -----------------------------
-      # 2️⃣ Configure AWS
-      # -----------------------------
-      - name: Load vars
-        env:
-          S3_BUCKET_PATH: ${{ vars.S3_BUCKET_PATH }}
+      # -----------------------------------------------------
+      # Setup Config Variables
+      # -----------------------------------------------------
+      - name: Load AWS Deployment Vars
         run: |
           echo "ACCOUNT_ID=${{ secrets.AWS_DEV_ACCOUNT_ID }}" >> $GITHUB_ENV
           echo "BUCKET=${{ secrets.S3_DEV_BUCKET || secrets.S3_DEV_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
           echo "DIST_ID=${{ secrets.CLOUDFRONT_DEV_DISTRIBUTION_ID || secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
           echo "DEPLOY_BRANCH_NAME=develop" >> $GITHUB_ENV
-          echo "UPLOAD_PATH=$S3_BUCKET_PATH" >> $GITHUB_ENV
-          echo "DELETE_REMOVED=**" >> $GITHUB_ENV
           echo "FOLDER=dist" >> $GITHUB_ENV
+          echo "UPLOAD_PATH=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
+          echo "DELETE_REMOVED=**" >> $GITHUB_ENV
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      # ---------------- Slack Alert ------------------------
+      - name: Notify Start
+        uses: 8398a7/action-slack@v3
         with:
-          role-to-assume: "arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}"
+          text: '🚀 New Build + Deploy Started for ${{ github.event.repository.name }}'
+          status: cancelled
+          author_name: 'Frontend CI/CD'
+          icon_emoji: ':rocket:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
+
+      # -----------------------------------------------------
+      # Configure AWS
+      # -----------------------------------------------------
+      - uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      # -----------------------------
-      # 3️⃣ Setup Node & Clean Cache
-      # -----------------------------
-      - name: Setup Node
+      # -----------------------------------------------------
+      # Node Setup
+      # -----------------------------------------------------
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: FULL clean cache
+      # -----------------------------------------------------
+      # Clean + Install
+      # -----------------------------------------------------
+      - name: Clear cache + node_modules
         run: |
-          echo "🔥 Cleaning old npm cache + npx"
           npm cache clean --force
-          rm -rf node_modules
-          rm -rf ~/.npm
-          rm -rf ~/.cache
-          rm -rf package-lock.json
+          rm -rf node_modules package-lock.json dist
 
-      # -----------------------------
-      # 4️⃣ Install & Build Astro
-      # -----------------------------
       - name: Install dependencies
-        run: npm install --no-fund --no-audit
+        run: npm install --no-audit --no-fund
 
-      - name: Build Astro website
+      # -----------------------------------------------------
+      # Build Astro
+      # -----------------------------------------------------
+      - name: Prepare env + Build site
         run: |
           npm run copy:env:${{ env.DEPLOY_BRANCH_NAME }}
-          node_modules/.bin/astro build
+          npx astro build
 
-      # -----------------------------
-      # 5️⃣ Deploy to S3
-      # -----------------------------
+      # -----------------------------------------------------
+      # Deploy to S3
+      # -----------------------------------------------------
       - name: Deploy to S3
         uses: reggionick/s3-deploy@v3
         with:
-          folder: dist
+          folder: ${{ env.FOLDER }}
           bucket: ${{ env.BUCKET }}
           bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
           dist-id: ${{ env.DIST_ID }}
           delete-removed: ${{ env.DELETE_REMOVED }}
-          no-cache: true
           private: true
+          no-cache: true
 
-  # -----------------------------
-  # 🎉 Notification Jobs
-  # -----------------------------
-  send-success:
-    needs: [detect-merge, build-and-deploy]
+  # ---------------------------------------------------------
+  # Success + Fail Slack Alerts
+  # ---------------------------------------------------------
+  notify-success:
+    needs: build-and-deploy
+    if: success()
     runs-on: ubuntu-latest
-    if: needs.detect-merge.outputs.is_merged == 'true' && success()
     steps:
       - uses: 8398a7/action-slack@v3
         with:
           status: success
-          text: "${{ github.event.repository.name }} Astro Deploy Succeeded 🎉"
+          text: "🎉 ${{ github.event.repository.name }} Build+Deploy Succeeded"
+          icon_emoji: ":white_check_mark:"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
 
-  send-failure:
-    needs: [detect-merge, build-and-deploy]
+  notify-failure:
+    needs: build-and-deploy
+    if: failure()
     runs-on: ubuntu-latest
-    if: needs.detect-merge.outputs.is_merged == 'true' && failure()
     steps:
       - uses: 8398a7/action-slack@v3
         with:
           status: failure
-          text: "${{ github.event.repository.name }} Astro Deploy Failed ❌"
+          text: "❌ ${{ github.event.repository.name }} Build or Deploy FAILED"
+          icon_emoji: ":x:"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
