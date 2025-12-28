@@ -92,7 +92,7 @@ jobs:
       - name: Prepare env + Build Astro site
         run: |
           npm run copy:env:${{ env.DEPLOY_BRANCH_NAME }}
-          npm run build
+          npx astro build
 
       - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3
