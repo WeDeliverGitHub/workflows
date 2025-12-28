@@ -85,8 +85,9 @@ jobs:
           npm cache clean --force
           rm -rf node_modules dist package-lock.json
 
-      - name: Install dependencies fresh
-        run: npm ci --no-audit --no-fund
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
 
       - name: Prepare env + Build Astro site
         run: |
