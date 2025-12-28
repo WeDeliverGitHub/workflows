@@ -1,14 +1,9 @@
 name: Develop 🚀 (free-zone)
 
 on:
-  pull_request:
-    branches: [ free-zone ]
-    types: [closed]
-    paths:
-      - 'env-configs/**'
-      - 'public/**'
-      - 'src/**'
-      - 'package*.json'
+  workflow_call:
+
+
 
 jobs:
   detect-merge:
