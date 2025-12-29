@@ -1,38 +1,65 @@
-name: Develop 🚀 (free-zone)
+name: Develop 🚀
 
 on:
   workflow_call:
 
-
-
 jobs:
+
   detect-merge:
     runs-on: ubuntu-latest
     outputs:
-      is_merged: ${{ steps.set.outputs.is_merged }}
+      is_merged: ${{ env.IS_MERGED }}
     steps:
-      - name: Determine if merge
-        id: set
+      - name: Check if 'S3_BUCKET_PATH' repo variable is set
         run: |
-          if [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]]; then
-            echo "is_merged=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_merged=false" >> $GITHUB_OUTPUT
+          if [ -z "${{ vars.S3_BUCKET_PATH }}" ]; then
+            echo "S3_BUCKET_PATH repo variable is not set. Exiting workflow."
+            exit 1
           fi
+      - name: Check for merge action
+        id: check_merge
+        run: |
+          if  [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]] ; then
+            echo "IS_MERGED=true" >> $GITHUB_ENV
+          else
+            echo "No 'master' merge detected. Skipping the workflow."
+            echo "IS_MERGED=false" >> $GITHUB_ENV
+          fi
+      
 
   build-and-deploy:
     needs: detect-merge
-    if: needs.detect-merge.outputs.is_merged == 'true'
     runs-on: ubuntu-latest
+    if: needs.detect-merge.outputs.is_merged == 'true'
+    name: 'Build and Deploy'
     permissions:
       id-token: write
       contents: read
       actions: read
-
     steps:
-      # -----------------------------------------------------
-      # Checkout PR Code (Important!)
-      # -----------------------------------------------------
+      - name: Set config variables
+        id: configs
+        env:
+          S3_BUCKET_PATH: ${{ vars.S3_BUCKET_PATH }}
+        run: |
+          echo "ACCOUNT_ID=${{ secrets.AWS_DEV_ACCOUNT_ID }}" >> $GITHUB_ENV
+          echo "BUCKET=${{ secrets.S3_DEV_BUCKET || secrets.S3_DEV_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
+          echo "DIST_ID=${{ secrets.CLOUDFRONT_DEV_DISTRIBUTION_ID || secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
+          echo "DEPLOY_BRANCH_NAME=develop" >> $GITHUB_ENV
+          echo "FOLDER=$(if [[ $S3_BUCKET_PATH == *"/apps/"* ]]; then echo 'dist'; else echo 'build'; fi)" >> $GITHUB_ENV
+          echo "UPLOAD_PATH=$S3_BUCKET_PATH" >> $GITHUB_ENV
+          echo "DELETE_REMOVED=**" >> $GITHUB_ENV
+
+      - name: New build Started
+        uses: 8398a7/action-slack@v3
+        with:
+          text: 'New Build and Deploy Started for ${{ github.event.repository.name }} 🚀'
+          status: 'cancelled'
+          author_name: 'Frontend Build and Deploy'
+          icon_emoji: ':rocket:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
+
       - name: Checkout PR HEAD Branch
         uses: actions/checkout@v4
         with:
@@ -40,105 +67,78 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           persist-credentials: false
 
-      # -----------------------------------------------------
-      # Setup Config Variables
-      # -----------------------------------------------------
-      - name: Load AWS Deployment Vars
+      - name: Reconfigure git to use HTTP authentication
         run: |
-          echo "ACCOUNT_ID=${{ secrets.AWS_DEV_ACCOUNT_ID }}" >> $GITHUB_ENV
-          echo "BUCKET=${{ secrets.S3_DEV_BUCKET || secrets.S3_DEV_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
-          echo "DIST_ID=${{ secrets.CLOUDFRONT_DEV_DISTRIBUTION_ID || secrets.CLOUDFRONT_DEV_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
-          echo "DEPLOY_BRANCH_NAME=develop" >> $GITHUB_ENV
-          echo "FOLDER=dist" >> $GITHUB_ENV
-          echo "UPLOAD_PATH=${{ vars.S3_BUCKET_PATH }}" >> $GITHUB_ENV
-          echo "DELETE_REMOVED=**" >> $GITHUB_ENV
+          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
 
-      # ---------------- Slack Alert ------------------------
-      - name: Notify Start
-        uses: 8398a7/action-slack@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          text: '🚀 New Build + Deploy Started for ${{ github.event.repository.name }}'
-          status: cancelled
-          author_name: 'Frontend CI/CD'
-          icon_emoji: ':rocket:'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
-
-      # -----------------------------------------------------
-      # Configure AWS
-      # -----------------------------------------------------
-      - uses: aws-actions/configure-aws-credentials@v1
-        with:
-          role-to-assume: arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}
+          role-to-assume: 'arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
 
-      # -----------------------------------------------------
-      # Node Setup
-      # -----------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
-      # -----------------------------------------------------
-      # Clean + Install
-      # -----------------------------------------------------
-      - name: Clear cache + node_modules
-        run: |
-          npm cache clean --force
-          rm -rf node_modules package-lock.json dist
-
+          
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
-
-      # -----------------------------------------------------
-      # Build Astro
-      # -----------------------------------------------------
-      - name: Prepare env + Build site
         run: |
-          npm run copy:env:${{ env.DEPLOY_BRANCH_NAME }}
-          npx astro build
+          npm ci
 
-      # -----------------------------------------------------
-      # Deploy to S3
-      # -----------------------------------------------------
-      - name: Deploy to S3
+      - name: Build the project
+        run: |
+          npm run deploy --branch_name=${{ env.DEPLOY_BRANCH_NAME }}
+
+      - name: Deploy to S3 bucket
         uses: reggionick/s3-deploy@v3
         with:
-          folder: ${{ env.FOLDER }}
-          bucket: ${{ env.BUCKET }}
-          bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
-          dist-id: ${{ env.DIST_ID }}
-          delete-removed: ${{ env.DELETE_REMOVED }}
-          private: true
-          no-cache: true
+            folder: ${{ env.FOLDER }}
+            bucket: ${{ env.BUCKET }}
+            bucket-region: ${{ secrets.AWS_DEFAULT_REGION }}
+            dist-id: ${{ env.DIST_ID }}
+            delete-removed: ${{ env.DELETE_REMOVED }}
+            no-cache: true
+            private: true
 
-  # ---------------------------------------------------------
-  # Success + Fail Slack Alerts
-  # ---------------------------------------------------------
-  notify-success:
-    needs: build-and-deploy
-    if: success()
+  send-workflow-success:
+    needs: [build-and-deploy, detect-merge]
     runs-on: ubuntu-latest
+    if: needs.detect-merge.outputs.is_merged == 'true' && success()
+    name: 'Send success notification'
+    permissions:
+      contents: read
+      actions: read
     steps:
-      - uses: 8398a7/action-slack@v3
+      - name: Send success notification
+        uses: 8398a7/action-slack@v3
         with:
-          status: success
-          text: "🎉 ${{ github.event.repository.name }} Build+Deploy Succeeded"
-          icon_emoji: ":white_check_mark:"
+          author_name: 'Frontend Build and Deploy'
+          status: 'success'
+          text: '${{ github.event.repository.name }} Frontend App Build and Deploy Succeeded ✅'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '✅'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
 
-  notify-failure:
-    needs: build-and-deploy
-    if: failure()
+  send-workflow-failure:
     runs-on: ubuntu-latest
+    name: 'Send fail notification'
+    permissions:
+      contents: read
+      actions: read
+    needs: [build-and-deploy, detect-merge]
+    if: needs.detect-merge.outputs.is_merged == 'true' && failure()
     steps:
-      - uses: 8398a7/action-slack@v3
+      - name: Send fail notification
+        uses: 8398a7/action-slack@v3
         with:
-          status: failure
-          text: "❌ ${{ github.event.repository.name }} Build or Deploy FAILED"
-          icon_emoji: ":x:"
+          author_name: 'Frontend Build and Deploy'
+          mention: 'here'
+          status: 'failure'
+          text: '${{ github.event.repository.name }} Frontend App Build or Deploy Failed 🔴'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '🔴'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT_DEV }}
