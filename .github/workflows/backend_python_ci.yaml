@@ -44,7 +44,7 @@ jobs:
       # Run Black (latest stable)
       - name: Black Format Check
         if: ${{ steps.filter.outputs.py_modified == 'true' }}
-        uses: psf/black@stable
+        uses: psf/black@24.4.2
         with:
           options: "--check --diff"
           src: ${{ steps.filter.outputs.py_modified_files }}
