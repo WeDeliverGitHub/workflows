@@ -25,6 +25,8 @@ on:
 jobs:
   build-push-image:
     runs-on: ubuntu-latest
+    env:
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
     # These permissions are needed to interact with GitHub's OIDC Token endpoint.
     permissions:
       id-token: write
@@ -130,6 +132,7 @@ jobs:
           git push
 
       - name: Create Sentry release
+        if: ${{ env.SENTRY_PROJECT != '' }}
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
