@@ -72,7 +72,7 @@ jobs:
 
       - name: Deploy feature directories to S3
         run: |
-          for feature_dir in landing-pages/*/; do
+          for feature_dir in */; do
             feature_name=$(basename "$feature_dir")
             echo "Deploying $feature_name..."
             aws s3 sync "$feature_dir" "s3://${{ env.BUCKET }}/$feature_name/" --delete
