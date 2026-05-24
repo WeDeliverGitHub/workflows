@@ -1,0 +1,128 @@
+name: Landing Pages Production 🚀
+
+on:
+  workflow_call:
+
+jobs:
+
+  detect-merge:
+    runs-on: ubuntu-latest
+    outputs:
+      is_merged: ${{ env.IS_MERGED }}
+    steps:
+      - name: Check if 'S3_BUCKET_PATH' repo variable is set
+        run: |
+          if [ -z "${{ vars.S3_BUCKET_PATH }}" ]; then
+            echo "S3_BUCKET_PATH repo variable is not set. Exiting workflow."
+            exit 1
+          fi
+      - name: Check for merge action
+        run: |
+          if [[ "${{ github.event.action }}" == "closed" && ${{ github.event.pull_request.merged }} == true ]]; then
+            echo "IS_MERGED=true" >> $GITHUB_ENV
+          else
+            echo "No 'master' merge detected. Skipping the workflow."
+            echo "IS_MERGED=false" >> $GITHUB_ENV
+          fi
+
+
+  deploy:
+    needs: detect-merge
+    runs-on: ubuntu-latest
+    if: needs.detect-merge.outputs.is_merged == 'true'
+    name: 'Deploy'
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+
+      - name: Set config variables
+        env:
+          S3_BUCKET_PATH: ${{ vars.S3_BUCKET_PATH }}
+        run: |
+          echo "ACCOUNT_ID=${{ secrets.AWS_PROD_ACCOUNT_ID }}" >> $GITHUB_ENV
+          echo "BUCKET=${{ secrets.S3_PROD_BUCKET || secrets.S3_PROD_APPS_BUCKET }}${{ vars.S3_BUCKET_PATH != '/' && vars.S3_BUCKET_PATH || '' }}" >> $GITHUB_ENV
+          echo "DIST_ID=${{ secrets.CLOUDFRONT_PROD_DISTRIBUTION_ID || secrets.CLOUDFRONT_PROD_APPS_DISTRIBUTION_ID }}" >> $GITHUB_ENV
+
+      - name: New Deploy Started
+        uses: 8398a7/action-slack@v3
+        with:
+          text: 'New Landing Pages Deploy Started for ${{ github.event.repository.name }} 🚀'
+          status: 'cancelled'
+          author_name: 'Frontend Build and Deploy'
+          icon_emoji: ':rocket:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT }}
+
+      - name: Checkout PR code
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Reconfigure git to use HTTP authentication
+        run: |
+          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: 'arn:aws:iam::${{ env.ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_DEPLOY_FRONTEND_APPS }}'
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Deploy feature directories to S3
+        run: |
+          for feature_dir in landing-pages/*/; do
+            feature_name=$(basename "$feature_dir")
+            echo "Deploying $feature_name..."
+            aws s3 sync "$feature_dir" "s3://${{ env.BUCKET }}/$feature_name/"
+          done
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.DIST_ID }} \
+            --paths "/*"
+
+
+  send-workflow-success:
+    needs: [deploy, detect-merge]
+    runs-on: ubuntu-latest
+    if: needs.detect-merge.outputs.is_merged == 'true' && success()
+    name: 'Send success notification'
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Send success notification
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Frontend Build and Deploy'
+          status: 'success'
+          text: '${{ github.event.repository.name }} Landing Pages Deploy Succeeded ✅'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '✅'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT }}
+
+
+  send-workflow-failure:
+    runs-on: ubuntu-latest
+    name: 'Send fail notification'
+    permissions:
+      contents: read
+      actions: read
+    needs: [deploy, detect-merge]
+    if: needs.detect-merge.outputs.is_merged == 'true' && failure()
+    steps:
+      - name: Send fail notification
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Frontend Build and Deploy'
+          mention: 'here'
+          status: 'failure'
+          text: '${{ github.event.repository.name }} Landing Pages Deploy Failed 🔴'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '🔴'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_FRONTEND_APPS_BLD_ALRT }}
