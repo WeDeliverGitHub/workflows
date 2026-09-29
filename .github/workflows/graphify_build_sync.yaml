@@ -1,0 +1,108 @@
+# Rebuilds a repo's graphify code-graph cache (content-hash keyed, incremental)
+# and syncs it to the shared wedeliver-graphify-cache S3 bucket. Consumed by
+# slack-support-bot, which pulls this cache into its job worktrees instead of
+# exploring the target repo from scratch on every Slack question.
+
+name: Graphify Build & Sync 🕸️
+
+on:
+  workflow_call:
+    inputs:
+      bucket:
+        description: S3 bucket holding the graphify cache
+        type: string
+        default: "wedeliver-graphify-cache"
+      repo_key:
+        description: Namespace this repo's cache lives under in the bucket (e.g. "thrivveservice")
+        type: string
+        required: true
+      graphify_version:
+        description: graphify cache format version (matches the graphify package's cache dir, e.g. "v0.9.46")
+        type: string
+        required: true
+
+jobs:
+  build-and-sync-graphify-cache:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+
+    steps:
+      - name: Build started
+        uses: 8398a7/action-slack@v3
+        with:
+          text: 'Graphify cache build started 🕸️'
+          status: 'cancelled'
+          author_name: 'Graphify Cache'
+          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          fields: repo,ref,message,author,eventName,workflow
+          icon_emoji: ':spider_web:'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: 'arn:aws:iam::${{ secrets.AWS_DEV_ACCOUNT_ID }}:role/graphify-cache-ci-writer'
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install graphify
+        run: pip install graphifyy
+
+      - name: Restore cache from S3
+        # Best-effort: the very first run for a repo has nothing to restore yet.
+        run: |
+          aws s3 sync \
+            "s3://${{ inputs.bucket }}/ast-cache/${{ inputs.repo_key }}/${{ inputs.graphify_version }}/" \
+            "./app/graphify-out/cache/ast/${{ inputs.graphify_version }}/" || true
+
+      - name: Build graph (incremental — only changed files get reprocessed)
+        run: graphify build
+
+      - name: Push updated cache to S3
+        run: |
+          aws s3 sync \
+            "./app/graphify-out/cache/ast/${{ inputs.graphify_version }}/" \
+            "s3://${{ inputs.bucket }}/ast-cache/${{ inputs.repo_key }}/${{ inputs.graphify_version }}/"
+
+      - name: Update manifest pointer
+        run: |
+          echo "{\"commit\": \"$GITHUB_SHA\", \"updated_at\": \"$(date -u +%FT%TZ)\"}" > latest.json
+          aws s3 cp latest.json "s3://${{ inputs.bucket }}/manifests/${{ inputs.repo_key }}/latest.json"
+
+      - name: Build succeeded
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Graphify Cache'
+          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          status: 'success'
+          text: 'Graphify cache updated ✅'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '✅'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
+
+      - name: Build failed
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          author_name: 'Graphify Cache'
+          icon_url: 'https://avatars.githubusercontent.com/u/71592178?s=48&v=4'
+          mention: 'here'
+          status: 'failure'
+          text: 'Graphify cache build failed 🔴'
+          fields: repo,message,commit,author,eventName,ref,workflow,job
+          icon_emoji: '🔴'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_BACKEND_SRV_BLD_ALRT_DEV }}
