@@ -17,7 +17,7 @@ on:
         type: string
         required: true
       graphify_version:
-        description: graphify cache format version (matches the graphify package's cache dir, e.g. "v0.9.46")
+        description: pinned graphifyy package version, "v" prefixed (e.g. "v0.9.46") — this is the exact version installed, and also the sub-folder graphify itself uses under cache/ast/
         type: string
         required: true
 
@@ -57,23 +57,34 @@ jobs:
           python-version: "3.12"
 
       - name: Install graphify
-        run: pip install graphifyy
+        # Pinned exactly: graphify's own on-disk cache/output format has moved
+        # under it before, and both this job and slack-support-bot assume the
+        # v0.9.46 layout (graph.json, manifest.json, cache/ast/v0.9.46/*.json).
+        run: pip install "graphifyy==${GRAPHIFY_VERSION#v}"
+        env:
+          GRAPHIFY_VERSION: ${{ inputs.graphify_version }}
 
       - name: Restore cache from S3
         # Best-effort: the very first run for a repo has nothing to restore yet.
+        # Syncs the whole graphify-out/ tree (graph.json, manifest.json,
+        # cache/) — not just cache/ast/ — since graphify's incremental gate
+        # (skip re-extracting unchanged files) needs manifest.json too.
         run: |
           aws s3 sync \
-            "s3://${{ inputs.bucket }}/ast-cache/${{ inputs.repo_key }}/${{ inputs.graphify_version }}/" \
-            "./app/graphify-out/cache/ast/${{ inputs.graphify_version }}/" || true
+            "s3://${{ inputs.bucket }}/graphify-cache/${{ inputs.repo_key }}/${{ inputs.graphify_version }}/" \
+            "./app/graphify-out/" || true
 
-      - name: Build graph (incremental — only changed files get reprocessed)
-        run: graphify build
+      - name: Extract graph (incremental — only changed files get reprocessed)
+        # --code-only: local tree-sitter AST extraction, no API key/LLM call.
+        # `.` = whole repo; --out app writes to app/graphify-out/ (matches
+        # this repo's existing .gitignore entry for that path).
+        run: graphify extract . --code-only --out app
 
       - name: Push updated cache to S3
         run: |
           aws s3 sync \
-            "./app/graphify-out/cache/ast/${{ inputs.graphify_version }}/" \
-            "s3://${{ inputs.bucket }}/ast-cache/${{ inputs.repo_key }}/${{ inputs.graphify_version }}/"
+            "./app/graphify-out/" \
+            "s3://${{ inputs.bucket }}/graphify-cache/${{ inputs.repo_key }}/${{ inputs.graphify_version }}/"
 
       - name: Update manifest pointer
         run: |
