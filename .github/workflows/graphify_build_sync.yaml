@@ -72,18 +72,20 @@ jobs:
         run: |
           aws s3 sync \
             "s3://${{ inputs.bucket }}/graphify-cache/${{ inputs.repo_key }}/${{ inputs.graphify_version }}/" \
-            "./app/graphify-out/" || true
+            "./graphify-out/" || true
 
       - name: Extract graph (incremental — only changed files get reprocessed)
         # --code-only: local tree-sitter AST extraction, no API key/LLM call.
-        # `.` = whole repo; --out app writes to app/graphify-out/ (matches
-        # this repo's existing .gitignore entry for that path).
-        run: graphify extract . --code-only --out app
+        # Deliberately at the default graphify-out/ location, not a custom
+        # --out — every path graphify resolves on its own (its Claude Code
+        # PreToolUse hook, `graphify query` with no --graph flag) assumes
+        # graphify-out/ relative to cwd; a custom --out silently breaks that.
+        run: graphify extract . --code-only
 
       - name: Push updated cache to S3
         run: |
           aws s3 sync \
-            "./app/graphify-out/" \
+            "./graphify-out/" \
             "s3://${{ inputs.bucket }}/graphify-cache/${{ inputs.repo_key }}/${{ inputs.graphify_version }}/"
 
       - name: Update manifest pointer
